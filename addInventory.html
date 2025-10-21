@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Inventory - IT Inventory Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Barcode Scanner Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .back-btn {
+            padding: 10px 15px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+            transform: translateX(-3px);
+        }
+
+        .logo-section {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 10px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #eaeaea;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background-color: #f9f9f9;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            outline: none;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(108, 117, 125, 0.6);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.6);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 193, 7, 0.6);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.6);
+        }
+
+        /* Image Upload Section - Updated for 350x350 */
+        .image-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #imagePreview {
+            width: 350px;
+            height: 350px;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            margin: 0 auto 15px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #667eea;
+            font-size: 14px;
+            overflow: hidden;
+        }
+
+        #imagePreview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #f0f0f0;
+        }
+
+        .image-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            max-width: 350px;
+            margin: 0 auto;
+        }
+
+        /* Barcode Scanner Section */
+        .barcode-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #barcodeScanner {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #28a745;
+            border-radius: 10px;
+            margin: 0 auto 15px;
+            background: #000;
+            display: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #barcodeScanner video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 100px;
+            border: 2px solid #28a745;
+            background: rgba(40, 167, 69, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .barcode-result {
+            background: #e8f5e8;
+            border: 1px solid #28a745;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .barcode-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* Camera Permission Error */
+        .permission-error {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+            display: none;
+        }
+
+        .permission-error h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .permission-error p {
+            color: #856404;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .permission-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        /* Inventory Items List - Updated for 350x350 */
+        .inventory-items {
+            margin-top: 20px;
+        }
+
+        .inventory-item {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .item-image {
+            width: 350px;
+            height: 350px;
+            border-radius: 10px;
+            margin: 0 auto 10px;
+            object-fit: contain;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            overflow: hidden;
+        }
+
+        .item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 10px;
+            background: #f0f0f0;
+        }
+
+        .item-details {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .item-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .item-model, .item-sn, .item-location {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+
+        .item-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            max-width: 350px;
+            margin: 0 auto;
+        }
+
+        .item-actions .btn {
+            padding: 8px 12px;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        /* Animations */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Search Section */
+        .search-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-form {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .search-results {
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .search-results .item-image {
+            width: 350px;
+            height: 350px;
+            margin: 0 auto 10px;
+        }
+
+        /* Manual Entry Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Mobile responsiveness for 350px images */
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 15px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            .btn {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+
+            #imagePreview {
+                width: 100%;
+                max-width: 350px;
+                height: 350px;
+            }
+
+            .item-image {
+                width: 100%;
+                max-width: 350px;
+                height: 350px;
+            }
+
+            .image-buttons {
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 400px) {
+            #imagePreview {
+                height: 300px;
+            }
+
+            .item-image {
+                height: 300px;
+            }
+        }
+
+        @media (max-width: 350px) {
+            #imagePreview {
+                height: 250px;
+            }
+
+            .item-image {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="nav-bar">
+                <button onclick="goBack()" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Main Menu
+                </button>
+                <div id="currentUserInfo"></div>
+            </div>
+
+            <div class="logo-section">
+                <div class="logo">
+                    <i class="fas fa-boxes"></i>
+                </div>
+                <h1>Add Inventory</h1>
+                <p class="subtitle">Add IT equipment to inventory system</p>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <h2 class="card-title">
+                <i class="fas fa-search"></i>
+                Search Inventory
+            </h2>
+            <div class="search-form">
+                <div class="form-group">
+                    <label for="searchField">Search by Model, SN, or Location</label>
+                    <input type="text" id="searchField" class="form-control" placeholder="Enter model, SN, or location...">
+                </div>
+                <button class="btn btn-primary" onclick="searchInventory()" style="width: auto; height: fit-content;">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <div class="search-results" id="searchResults">
+                <!-- Search results will appear here -->
+            </div>
+        </div>
+
+        <!-- Add Inventory Form -->
+        <div class="card">
+            <h2 class="card-title">
+                <i class="fas fa-plus-circle"></i>
+                Add New Item
+            </h2>
+            
+            <div id="formAlert"></div>
+            
+            <!-- Image Upload Section -->
+            <div class="image-section">
+                <div id="imagePreview">
+                    <span>No image selected</span>
+                </div>
+                <div class="image-buttons">
+                    <button class="btn btn-primary" onclick="document.getElementById('imageUpload').click()">
+                        <i class="fas fa-upload"></i>
+                        Upload Image
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearImage()">
+                        <i class="fas fa-times"></i>
+                        Clear Image
+                    </button>
+                </div>
+                <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+            </div>
+
+            <!-- Camera Permission Error Section -->
+            <div class="permission-error" id="permissionError">
+                <h4><i class="fas fa-exclamation-triangle"></i> Camera Access Required</h4>
+                <p>To use barcode scanning, please allow camera access in your browser settings.</p>
+                <div class="permission-buttons">
+                    <button class="btn btn-warning" onclick="retryCameraAccess()">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                    <button class="btn btn-secondary" onclick="continueWithoutCamera()">
+                        <i class="fas fa-forward"></i> Continue Without Camera
+                    </button>
+                </div>
+            </div>
+
+            <!-- Barcode Scanner Section -->
+            <div class="barcode-section">
+                <div class="barcode-buttons">
+                    <button class="btn btn-success" onclick="startBarcodeScanner()" id="scanBtn">
+                        <i class="fas fa-barcode"></i>
+                        Scan Barcode
+                    </button>
+                    <button class="btn btn-warning" onclick="showManualEntryModal()">
+                        <i class="fas fa-keyboard"></i>
+                        Manual Entry
+                    </button>
+                </div>
+                
+                <div id="barcodeScanner">
+                    <video id="barcodeVideo" playsinline></video>
+                    <div class="scanner-overlay">
+                        Point camera at barcode
+                    </div>
+                </div>
+                
+                <div class="barcode-result" id="barcodeResult">
+                    <strong>Scanned Code:</strong> <span id="scannedCode"></span>
+                    <button class="btn btn-secondary" onclick="useScannedCode()" style="margin-top: 10px; width: 100%;">
+                        <i class="fas fa-check"></i> Use This Code
+                    </button>
+                </div>
+            </div>
+
+            <form id="inventoryForm">
+                <div class="form-group">
+                    <label for="itemCategory">Item Category</label>
+                    <select id="itemCategory" class="form-control" required onchange="updateCategory()">
+                        <option value="">Select Category</option>
+                        <option value="desktop">Desktop PC</option>
+                        <option value="laptop">Laptop</option>
+                        <option value="printer">Printer</option>
+                        <option value="monitor">Monitor</option>
+                        <option value="ram">RAM</option>
+                        <option value="harddisk">Hard Disk</option>
+                        <option value="network">Network Equipment</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemName">Item Name</label>
+                    <input type="text" id="itemName" class="form-control" placeholder="Enter item name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemModel">Model</label>
+                    <input type="text" id="itemModel" class="form-control" placeholder="Enter model" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemSN">Serial Number (SN)</label>
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px;">
+                        <input type="text" id="itemSN" class="form-control" placeholder="Scan barcode or enter manually" required readonly>
+                        <button type="button" class="btn btn-warning" onclick="showManualEntryModal()" style="width: auto;">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemLocation">Current Location</label>
+                    <input type="text" id="itemLocation" class="form-control" placeholder="Enter current location" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itemDescription">Description (Optional)</label>
+                    <textarea id="itemDescription" class="form-control" placeholder="Enter additional description" rows="3"></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-save"></i>
+                    Add to Inventory
+                </button>
+            </form>
+        </div>
+
+        <!-- Recent Items -->
+        <div class="card inventory-items">
+            <h2 class="card-title">
+                <i class="fas fa-list"></i>
+                Recent Items
+            </h2>
+            <div id="recentItems">
+                <div style="text-align: center; padding: 20px; color: #666;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading items...
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Provided by Lakmal Sanjeewa
+        </div>
+    </div>
+
+    <!-- Manual Entry Modal -->
+    <div class="modal" id="manualEntryModal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #333;">Enter Serial Number</h3>
+            <div class="form-group">
+                <input type="text" id="manualSN" class="form-control" placeholder="Enter serial number manually">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeManualEntryModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button class="btn btn-primary" onclick="applyManualSN()">
+                    <i class="fas fa-check"></i> Apply
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCzIgd061S77b_QSdl9aDHg2p_DEICENRw",
+            authDomain: "expensetracker-a81ee.firebaseapp.com",
+            databaseURL: "https://expensetracker-a81ee-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "expensetracker-a81ee",
+            storageBucket: "expensetracker-a81ee.firebasestorage.app",
+            messagingSenderId: "386142221621",
+            appId: "1:386142221621:web:a5344f1ec37983b3e2087c",
+            measurementId: "G-Y3Q9R12J2G"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        let currentUser = null;
+        let selectedImage = null;
+        let selectedImageUrl = null;
+        let barcodeScannerActive = false;
+        let videoStream = null;
+        let cameraPermissionDenied = false;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            // Check authentication
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user;
+                    updateCurrentUserInfo(user);
+                    loadRecentItems();
+                } else {
+                    window.location.href = 'index.html';
+                }
+            });
+
+            // Form submission
+            document.getElementById('inventoryForm').addEventListener('submit', handleFormSubmit);
+
+            // Check camera permission status on load
+            checkCameraPermission();
+        }
+
+        // Check camera permission status
+        async function checkCameraPermission() {
+            try {
+                const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+                
+                permissionStatus.onchange = function() {
+                    if (this.state === 'denied') {
+                        cameraPermissionDenied = true;
+                        showPermissionError();
+                    } else if (this.state === 'granted') {
+                        cameraPermissionDenied = false;
+                        hidePermissionError();
+                    }
+                };
+
+                if (permissionStatus.state === 'denied') {
+                    cameraPermissionDenied = true;
+                    showPermissionError();
+                }
+            } catch (error) {
+                console.log('Camera permission API not supported');
+            }
+        }
+
+        function showPermissionError() {
+            document.getElementById('permissionError').style.display = 'block';
+            document.getElementById('scanBtn').disabled = true;
+            document.getElementById('scanBtn').innerHTML = '<i class="fas fa-ban"></i> Camera Blocked';
+        }
+
+        function hidePermissionError() {
+            document.getElementById('permissionError').style.display = 'none';
+            document.getElementById('scanBtn').disabled = false;
+            document.getElementById('scanBtn').innerHTML = '<i class="fas fa-barcode"></i> Scan Barcode';
+        }
+
+        function retryCameraAccess() {
+            cameraPermissionDenied = false;
+            hidePermissionError();
+            startBarcodeScanner();
+        }
+
+        function continueWithoutCamera() {
+            hidePermissionError();
+            showManualEntryModal();
+        }
+
+        function goBack() {
+            window.location.href = 'mainmenu.html';
+        }
+
+        function updateCurrentUserInfo(user) {
+            const currentUserInfo = document.getElementById('currentUserInfo');
+            const displayName = user.displayName || user.email.split('@')[0];
+            currentUserInfo.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+                    <div style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                        ${displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600; color: #333;">${displayName}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Image Handling Functions
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedImage = file;
+                selectedImageUrl = URL.createObjectURL(file);
+                document.getElementById('imagePreview').innerHTML = `<img src="${selectedImageUrl}" alt="Uploaded Image">`;
+            }
+        }
+
+        function clearImage() {
+            selectedImage = null;
+            selectedImageUrl = null;
+            document.getElementById('imagePreview').innerHTML = '<span>No image selected</span>';
+            document.getElementById('imageUpload').value = '';
+        }
+
+        // Barcode Scanner Functions with Enhanced Error Handling
+        async function startBarcodeScanner() {
+            if (cameraPermissionDenied) {
+                showPermissionError();
+                return;
+            }
+
+            const scanner = document.getElementById('barcodeScanner');
+            const result = document.getElementById('barcodeResult');
+            
+            if (barcodeScannerActive) {
+                stopBarcodeScanner();
+                return;
+            }
+
+            try {
+                // Request camera access with better error handling
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                const video = document.getElementById('barcodeVideo');
+                video.srcObject = videoStream;
+                scanner.style.display = 'block';
+                barcodeScannerActive = true;
+
+                // Update button text
+                document.getElementById('scanBtn').innerHTML = '<i class="fas fa-stop"></i> Stop Scanning';
+
+                // Start scanning
+                scanBarcode();
+                
+            } catch (error) {
+                console.error('Camera access error:', error);
+                handleCameraError(error);
+            }
+        }
+
+        function handleCameraError(error) {
+            let errorMessage = 'Camera access failed. ';
+            
+            switch(error.name) {
+                case 'NotAllowedError':
+                    errorMessage += 'Camera permission was denied.';
+                    cameraPermissionDenied = true;
+                    showPermissionError();
+                    break;
+                case 'NotFoundError':
+                    errorMessage += 'No camera found on this device.';
+                    break;
+                case 'NotSupportedError':
+                    errorMessage += 'Camera not supported in this browser.';
+                    break;
+                case 'NotReadableError':
+                    errorMessage += 'Camera is already in use by another application.';
+                    break;
+                case 'OverconstrainedError':
+                    errorMessage += 'Camera constraints could not be satisfied.';
+                    break;
+                default:
+                    errorMessage += 'Please check your camera settings.';
+            }
+            
+            showAlert('formAlert', errorMessage, 'error');
+            document.getElementById('scanBtn').innerHTML = '<i class="fas fa-barcode"></i> Scan Barcode';
+        }
+
+        function stopBarcodeScanner() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            
+            document.getElementById('barcodeScanner').style.display = 'none';
+            barcodeScannerActive = false;
+            document.getElementById('scanBtn').innerHTML = '<i class="fas fa-barcode"></i> Scan Barcode';
+        }
+
+        function scanBarcode() {
+            if (!barcodeScannerActive) return;
+
+            const video = document.getElementById('barcodeVideo');
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            function tick() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    if (code) {
+                        // Barcode found!
+                        document.getElementById('scannedCode').textContent = code.data;
+                        document.getElementById('barcodeResult').style.display = 'block';
+                        stopBarcodeScanner();
+                        return;
+                    }
+                }
+                
+                if (barcodeScannerActive) {
+                    requestAnimationFrame(tick);
+                }
+            }
+
+            video.addEventListener('loadedmetadata', () => {
+                tick();
+            });
+
+            // Auto-stop scanner after 30 seconds to save battery
+            setTimeout(() => {
+                if (barcodeScannerActive) {
+                    stopBarcodeScanner();
+                    showAlert('formAlert', 'Scanner stopped automatically after 30 seconds', 'error');
+                }
+            }, 30000);
+        }
+
+        function useScannedCode() {
+            const scannedCode = document.getElementById('scannedCode').textContent;
+            document.getElementById('itemSN').value = scannedCode;
+            document.getElementById('barcodeResult').style.display = 'none';
+        }
+
+        // Manual Entry Modal Functions
+        function showManualEntryModal() {
+            document.getElementById('manualEntryModal').style.display = 'flex';
+            document.getElementById('manualSN').value = document.getElementById('itemSN').value;
+            document.getElementById('manualSN').focus();
+        }
+
+        function closeManualEntryModal() {
+            document.getElementById('manualEntryModal').style.display = 'none';
+        }
+
+        function applyManualSN() {
+            const manualSN = document.getElementById('manualSN').value;
+            if (manualSN) {
+                document.getElementById('itemSN').value = manualSN;
+            }
+            closeManualEntryModal();
+        }
+
+        function updateCategory() {
+            const category = document.getElementById('itemCategory').value;
+            const nameInput = document.getElementById('itemName');
+            
+            const categoryNames = {
+                'desktop': 'Desktop Computer',
+                'laptop': 'Laptop Computer',
+                'printer': 'Printer',
+                'monitor': 'Monitor',
+                'ram': 'RAM Module',
+                'harddisk': 'Hard Disk Drive',
+                'network': 'Network Switch',
+                'other': 'IT Equipment'
+            };
+            
+            if (categoryNames[category] && !nameInput.value) {
+                nameInput.value = categoryNames[category];
+            }
+        }
+
+        // Convert image to Base64 for Realtime Database storage
+        function imageToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Form Submission
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerHTML = '<div class="loading"></div> Saving...';
+            submitBtn.disabled = true;
+
+            try {
+                const formData = {
+                    category: document.getElementById('itemCategory').value,
+                    name: document.getElementById('itemName').value,
+                    model: document.getElementById('itemModel').value,
+                    sn: document.getElementById('itemSN').value,
+                    location: document.getElementById('itemLocation').value,
+                    description: document.getElementById('itemDescription').value,
+                    createdBy: currentUser.email,
+                    createdById: currentUser.uid,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+
+                // Check if SN already exists
+                const existingItems = await database.ref('inventory').orderByChild('sn').equalTo(formData.sn).once('value');
+                if (existingItems.exists()) {
+                    throw new Error('Serial Number already exists in inventory');
+                }
+
+                // Convert image to Base64 if selected
+                if (selectedImage) {
+                    try {
+                        const base64Image = await imageToBase64(selectedImage);
+                        formData.imageBase64 = base64Image;
+                    } catch (error) {
+                        console.error('Error converting image:', error);
+                    }
+                }
+
+                // Save to Firebase Realtime Database
+                const newItemRef = database.ref('inventory').push();
+                await newItemRef.set(formData);
+
+                showAlert('formAlert', 'Item added to inventory successfully!', 'success');
+                document.getElementById('inventoryForm').reset();
+                clearImage();
+                document.getElementById('itemSN').removeAttribute('readonly');
+                
+                loadRecentItems();
+                
+            } catch (error) {
+                console.error('Error adding item:', error);
+                showAlert('formAlert', 'Error: ' + error.message, 'error');
+            } finally {
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> Add to Inventory';
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Load Recent Items
+        async function loadRecentItems() {
+            try {
+                const snapshot = await database.ref('inventory')
+                    .orderByChild('createdAt')
+                    .limitToLast(10)
+                    .once('value');
+
+                const recentItems = document.getElementById('recentItems');
+                
+                if (!snapshot.exists()) {
+                    recentItems.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No items found</div>';
+                    return;
+                }
+
+                const items = [];
+                snapshot.forEach((childSnapshot) => {
+                    items.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+
+                items.reverse();
+
+                recentItems.innerHTML = items.map(item => {
+                    return `
+                        <div class="inventory-item">
+                            <div class="item-image">
+                                ${item.imageBase64 ? 
+                                    `<img src="${item.imageBase64}" alt="${item.name}">` : 
+                                    '<i class="fas fa-image fa-2x"></i>'
+                                }
+                            </div>
+                            <div class="item-details">
+                                <div class="item-name">${item.name}</div>
+                                <div class="item-model">Model: ${item.model}</div>
+                                <div class="item-sn">SN: ${item.sn}</div>
+                                <div class="item-location">Location: ${item.location}</div>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn btn-warning" onclick="editItem('${item.id}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteItem('${item.id}', '${item.name}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading items:', error);
+                document.getElementById('recentItems').innerHTML = '<div class="alert alert-error">Error loading items</div>';
+            }
+        }
+
+        // Search Functionality
+        async function searchInventory() {
+            const searchTerm = document.getElementById('searchField').value.toLowerCase();
+            const resultsDiv = document.getElementById('searchResults');
+
+            if (!searchTerm) {
+                resultsDiv.innerHTML = '<div style="text-align: center; color: #666;">Please enter search term</div>';
+                return;
+            }
+
+            try {
+                const snapshot = await database.ref('inventory').once('value');
+                
+                if (!snapshot.exists()) {
+                    resultsDiv.innerHTML = '<div style="text-align: center; color: #666;">No items found</div>';
+                    return;
+                }
+
+                const items = [];
+                snapshot.forEach((childSnapshot) => {
+                    const item = childSnapshot.val();
+                    if (item.model.toLowerCase().includes(searchTerm) || 
+                        item.sn.toLowerCase().includes(searchTerm) || 
+                        item.location.toLowerCase().includes(searchTerm)) {
+                        items.push({
+                            id: childSnapshot.key,
+                            ...item
+                        });
+                    }
+                });
+
+                displaySearchResults(items, resultsDiv);
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsDiv.innerHTML = '<div class="alert alert-error">Search error: ' + error.message + '</div>';
+            }
+        }
+
+        function displaySearchResults(items, container) {
+            if (items.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #666;">No items found</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(item => {
+                return `
+                    <div class="inventory-item" style="margin-bottom: 10px;">
+                        <div class="item-image">
+                            ${item.imageBase64 ? 
+                                `<img src="${item.imageBase64}" alt="${item.name}">` : 
+                                '<i class="fas fa-image fa-2x"></i>'
+                            }
+                        </div>
+                        <div class="item-details">
+                            <div class="item-name">${item.name}</div>
+                            <div class="item-model">Model: ${item.model}</div>
+                            <div class="item-sn">SN: ${item.sn}</div>
+                            <div class="item-location">Location: ${item.location}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Edit and Delete Functions
+        function editItem(itemId) {
+            database.ref('inventory/' + itemId).once('value')
+                .then((snapshot) => {
+                    const item = snapshot.val();
+                    if (item) {
+                        document.getElementById('itemCategory').value = item.category;
+                        document.getElementById('itemName').value = item.name;
+                        document.getElementById('itemModel').value = item.model;
+                        document.getElementById('itemSN').value = item.sn;
+                        document.getElementById('itemLocation').value = item.location;
+                        document.getElementById('itemDescription').value = item.description || '';
+                        
+                        document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save"></i> Update Item';
+                        document.getElementById('submitBtn').onclick = function(e) {
+                            e.preventDefault();
+                            updateItem(itemId);
+                        };
+                        
+                        showAlert('formAlert', 'Editing item: ' + item.name, 'success');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error loading item:', error);
+                    showAlert('formAlert', 'Error loading item: ' + error.message, 'error');
+                });
+        }
+
+        async function updateItem(itemId) {
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerHTML = '<div class="loading"></div> Updating...';
+            submitBtn.disabled = true;
+
+            try {
+                const formData = {
+                    category: document.getElementById('itemCategory').value,
+                    name: document.getElementById('itemName').value,
+                    model: document.getElementById('itemModel').value,
+                    sn: document.getElementById('itemSN').value,
+                    location: document.getElementById('itemLocation').value,
+                    description: document.getElementById('itemDescription').value,
+                    updatedBy: currentUser.email,
+                    updatedAt: Date.now()
+                };
+
+                if (selectedImage) {
+                    try {
+                        const base64Image = await imageToBase64(selectedImage);
+                        formData.imageBase64 = base64Image;
+                    } catch (error) {
+                        console.error('Error converting image:', error);
+                    }
+                }
+
+                await database.ref('inventory/' + itemId).update(formData);
+
+                showAlert('formAlert', 'Item updated successfully!', 'success');
+                document.getElementById('inventoryForm').reset();
+                clearImage();
+                
+                document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save"></i> Add to Inventory';
+                document.getElementById('submitBtn').onclick = handleFormSubmit;
+                
+                loadRecentItems();
+                
+            } catch (error) {
+                console.error('Error updating item:', error);
+                showAlert('formAlert', 'Error: ' + error.message, 'error');
+            } finally {
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> Update Item';
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function deleteItem(itemId, itemName) {
+            if (!confirm(`Are you sure you want to delete "${itemName}"?`)) return;
+
+            try {
+                await database.ref('inventory/' + itemId).remove();
+                showAlert('formAlert', `Item "${itemName}" deleted successfully!`, 'success');
+                loadRecentItems();
+            } catch (error) {
+                console.error('Error deleting item:', error);
+                alert('Error deleting item: ' + error.message);
+            }
+        }
+
+        // Helper Functions
+        function showAlert(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

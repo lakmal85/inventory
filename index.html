@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Mobile Loading & Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        /* Loading Screen Styles */
+        .loading-screen {
+            display: block;
+        }
+
+        .login-screen {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .logo {
+            margin-bottom: 30px;
+        }
+
+        /* Loading Screen Logo - Smaller Size */
+        .loading-logo {
+            width: 270px;
+            height: 270px;
+            margin: 0 auto 15px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            background-color: #f5f5f5;
+            border: 3px solid #fff;
+        }
+
+        /* Login Screen Logo - Larger Size */
+        .login-logo {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 15px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            background-color: #f5f5f5;
+            border: 3px solid #fff;
+            transition: all 0.3s ease;
+        }
+
+        .profile-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .default-avatar {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 40px;
+            border-radius: 50%;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            height: 12px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background-image: linear-gradient(
+                -45deg,
+                rgba(255, 255, 255, 0.2) 25%,
+                transparent 25%,
+                transparent 50%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0.2) 75%,
+                transparent 75%,
+                transparent
+            );
+            background-size: 20px 20px;
+            animation: move 1s linear infinite;
+        }
+
+        .loading-text {
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            margin-left: 5px;
+        }
+
+        .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: #764ba2;
+            margin: 0 2px;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        .percentage {
+            font-weight: bold;
+            color: #764ba2;
+            margin-left: 5px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            margin: 20px auto;
+            border: 4px solid rgba(102, 126, 234, 0.2);
+            border-left: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .status {
+            font-size: 12px;
+            color: #888;
+            margin-top: 15px;
+            min-height: 18px;
+        }
+
+        .complete-message {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        /* Footer text below loading screen */
+        .loading-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+            color: #999;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        /* Login Form Styles */
+        .login-title {
+            color: #333;
+            font-size: 26px;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .login-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #764ba2;
+            font-size: 18px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px 15px 15px 50px;
+            border: 2px solid #eaeaea;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+            background-color: #f9f9f9;
+        }
+
+        .input-group input:focus {
+            border-color: #667eea;
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            outline: none;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-btn.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .login-btn .btn-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        .login-btn.loading .btn-text {
+            display: none;
+        }
+
+        .login-btn.loading .btn-spinner {
+            display: block;
+        }
+
+        .login-footer {
+            margin-top: 25px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .login-footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 15px;
+            padding: 10px;
+            background: #ffeaea;
+            border-radius: 8px;
+            display: none;
+        }
+
+        @keyframes move {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: 20px 0;
+            }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Loading Screen -->
+        <div class="loading-screen" id="loadingScreen">
+            <div class="logo">
+                <div class="loading-logo">
+                    <img src="image/logo.png" alt="Logo" class="profile-image">
+                </div>
+            </div>
+            
+            <h1>Loading CTM IT Inventory system</h1>
+            <p class="subtitle">Please wait while we prepare everything</p>
+            
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            
+            <div class="loading-text">
+                <span>Loading</span>
+                <div class="loading-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+                <span class="percentage" id="percentage">0%</span>
+            </div>
+            
+            <div class="spinner"></div>
+            
+            <div class="status" id="status">Initializing...</div>
+            
+            <div class="complete-message" id="completeMessage">
+                ✓ Loading complete! Ready to proceed.
+            </div>
+            
+            <div class="loading-footer">
+                Provided by Lakmal Sanjeewa
+            </div>
+        </div>
+
+        <!-- Login Screen -->
+        <div class="login-screen" id="loginScreen">
+            <div class="logo">
+                <div class="login-logo" id="profileImageContainer">
+                    <div class="default-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <h1 class="login-title">Welcome Back</h1>
+            <p class="login-subtitle">Sign in to your account to continue</p>
+            
+            <form id="loginForm">
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="email" placeholder="Email address" required>
+                </div>
+                
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Password" required>
+                </div>
+                
+                <button type="submit" class="login-btn pulse" id="loginButton">
+                    <span class="btn-text">Sign In</span>
+                    <div class="btn-spinner"></div>
+                </button>
+                
+                <div class="error-message" id="errorMessage"></div>
+            </form>
+            
+            <div class="login-footer">
+                <a href="#" id="forgotPassword">Forgot your password?</a> | <a href="#" id="createAccount">Create account</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            // Replace with your Firebase config
+  apiKey: "AIzaSyCzIgd061S77b_QSdl9aDHg2p_DEICENRw",
+  authDomain: "expensetracker-a81ee.firebaseapp.com",
+  databaseURL: "https://expensetracker-a81ee-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "expensetracker-a81ee",
+  storageBucket: "expensetracker-a81ee.firebasestorage.app",
+  messagingSenderId: "386142221621",
+  appId: "1:386142221621:web:a5344f1ec37983b3e2087c",
+  measurementId: "G-Y3Q9R12J2G"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const progressBar = document.getElementById('progressBar');
+            const percentage = document.getElementById('percentage');
+            const status = document.getElementById('status');
+            const completeMessage = document.getElementById('completeMessage');
+            const loadingScreen = document.getElementById('loadingScreen');
+            const loginScreen = document.getElementById('loginScreen');
+            const loginForm = document.getElementById('loginForm');
+            const loginButton = document.getElementById('loginButton');
+            const errorMessage = document.getElementById('errorMessage');
+            const emailInput = document.getElementById('email');
+            const profileImageContainer = document.getElementById('profileImageContainer');
+            const forgotPasswordLink = document.getElementById('forgotPassword');
+            const createAccountLink = document.getElementById('createAccount');
+            
+            let progress = 0;
+            let loadingInterval;
+            
+            // Function to update profile image based on email
+            function updateProfileImage(email) {
+                if (email && email.includes('@')) {
+                    // Generate a colorful avatar based on email
+                    const username = email.split('@')[0];
+                    const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'];
+                    const color = colors[username.length % colors.length];
+                    
+                    profileImageContainer.innerHTML = `
+                        <div class="default-avatar" style="background: ${color}">
+                            ${username.charAt(0).toUpperCase()}
+                        </div>
+                    `;
+                } else {
+                    // Default avatar
+                    profileImageContainer.innerHTML = `
+                        <div class="default-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Event listener for email input
+            emailInput.addEventListener('input', function() {
+                updateProfileImage(this.value);
+            });
+            
+            function startLoading() {
+                progress = 0;
+                progressBar.style.width = '0%';
+                percentage.textContent = '0%';
+                status.textContent = 'Initializing...';
+                completeMessage.style.display = 'none';
+                loginScreen.style.display = 'none';
+                loadingScreen.style.display = 'block';
+                
+                loadingInterval = setInterval(function() {
+                    progress += Math.random() * 5;
+                    
+                    if (progress >= 100) {
+                        progress = 100;
+                        clearInterval(loadingInterval);
+                        
+                        // Show completion
+                        setTimeout(function() {
+                            status.textContent = 'Finalizing...';
+                            setTimeout(function() {
+                                status.textContent = 'Complete!';
+                                completeMessage.style.display = 'block';
+                                
+                                // Transition to login screen after a delay
+                                setTimeout(showLoginScreen, 1000);
+                            }, 500);
+                        }, 300);
+                    }
+                    
+                    progressBar.style.width = progress + '%';
+                    percentage.textContent = Math.floor(progress) + '%';
+                    
+                    // Update status messages based on progress
+                    if (progress < 20) {
+                        status.textContent = 'Initializing...';
+                    } else if (progress < 40) {
+                        status.textContent = 'Loading resources...';
+                    } else if (progress < 60) {
+                        status.textContent = 'Processing data...';
+                    } else if (progress < 80) {
+                        status.textContent = 'Almost there...';
+                    } else {
+                        status.textContent = 'Finalizing...';
+                    }
+                    
+                }, 200);
+            }
+            
+            function showLoginScreen() {
+                loadingScreen.style.display = 'none';
+                loginScreen.style.display = 'block';
+                
+                // Trigger animation
+                setTimeout(function() {
+                    loginScreen.classList.add('fade-in');
+                }, 50);
+            }
+            
+            // Handle login form submission
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const email = emailInput.value;
+                const password = document.getElementById('password').value;
+                
+                // Show loading state
+                loginButton.classList.add('loading');
+                errorMessage.style.display = 'none';
+                
+                // Firebase authentication
+                auth.signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Signed in successfully
+                        const user = userCredential.user;
+                        console.log('User logged in:', user);
+                        
+                        // Redirect to main menu
+                        setTimeout(() => {
+                            window.location.href = 'mainmenu.html';
+                        }, 1000);
+                    })
+                    .catch((error) => {
+                        // Handle errors
+                        const errorCode = error.code;
+                        const errorMessageText = error.message;
+                        
+                        console.error('Login error:', errorCode, errorMessageText);
+                        
+                        // Show error message
+                        errorMessage.textContent = getErrorMessage(errorCode);
+                        errorMessage.style.display = 'block';
+                        
+                        // Remove loading state
+                        loginButton.classList.remove('loading');
+                    });
+            });
+            
+            // Forgot password functionality
+            forgotPasswordLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                const email = emailInput.value;
+                
+                if (!email) {
+                    errorMessage.textContent = 'Please enter your email address first';
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+                
+                auth.sendPasswordResetEmail(email)
+                    .then(() => {
+                        errorMessage.textContent = 'Password reset email sent! Check your inbox.';
+                        errorMessage.style.display = 'block';
+                        errorMessage.style.color = '#28a745';
+                        errorMessage.style.background = '#e8f5e8';
+                    })
+                    .catch((error) => {
+                        errorMessage.textContent = getErrorMessage(error.code);
+                        errorMessage.style.display = 'block';
+                    });
+            });
+            
+            // Create account functionality
+            createAccountLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                const email = emailInput.value;
+                const password = document.getElementById('password').value;
+                
+                if (!email || !password) {
+                    errorMessage.textContent = 'Please enter both email and password to create an account';
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+                
+                loginButton.classList.add('loading');
+                
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Account created successfully
+                        const user = userCredential.user;
+                        console.log('User created:', user);
+                        
+                        errorMessage.textContent = 'Account created successfully! You are now logged in.';
+                        errorMessage.style.display = 'block';
+                        errorMessage.style.color = '#28a745';
+                        errorMessage.style.background = '#e8f5e8';
+                        
+                        // Redirect to main menu
+                        setTimeout(() => {
+                            window.location.href = 'mainmenu.html';
+                        }, 2000);
+                    })
+                    .catch((error) => {
+                        const errorCode = error.code;
+                        const errorMessageText = error.message;
+                        
+                        errorMessage.textContent = getErrorMessage(errorCode);
+                        errorMessage.style.display = 'block';
+                        
+                        loginButton.classList.remove('loading');
+                    });
+            });
+            
+            // Helper function to get user-friendly error messages
+            function getErrorMessage(errorCode) {
+                switch (errorCode) {
+                    case 'auth/invalid-email':
+                        return 'Invalid email address format.';
+                    case 'auth/user-disabled':
+                        return 'This account has been disabled.';
+                    case 'auth/user-not-found':
+                        return 'No account found with this email.';
+                    case 'auth/wrong-password':
+                        return 'Incorrect password. Please try again.';
+                    case 'auth/email-already-in-use':
+                        return 'This email is already registered.';
+                    case 'auth/weak-password':
+                        return 'Password should be at least 6 characters.';
+                    case 'auth/network-request-failed':
+                        return 'Network error. Please check your connection.';
+                    default:
+                        return 'Login failed. Please try again.';
+                }
+            }
+            
+            // Start loading on page load
+            startLoading();
+        });
+    </script>
+</body>
+</html>
