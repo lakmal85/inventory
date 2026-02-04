@@ -1,0 +1,3497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CTM IT - User Asset Report Generator</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- ExcelJS for Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <!-- FileSaver for saving files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --success-green: #10b981;
+            --warning-yellow: #fbbf24;
+            --danger-red: #ef4444;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--dark-gray);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Firebase Status Indicator */
+        .firebase-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .firebase-connected {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border: 2px solid #10b981;
+        }
+
+        .firebase-disconnected {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: 2px solid #ef4444;
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            box-shadow: var(--shadow);
+            padding: 0.8rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--primary-blue);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        .department-name {
+            font-size: 0.7rem;
+            color: var(--success-green);
+            font-weight: 600;
+        }
+
+        /* Navigation */
+        .mobile-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+            gap: 0.5rem;
+            scrollbar-width: none;
+        }
+
+        .mobile-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 0 0 auto;
+            padding: 0.6rem 1rem;
+            background: var(--light-gray);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--medium-gray);
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .nav-tab:hover {
+            background: #e5e7eb;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1rem;
+            max-width: 100%;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Page Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem 1rem;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-blue);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--dark-gray);
+        }
+
+        .page-subtitle {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--success-green);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 44px;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-blue);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning-yellow);
+            color: var(--dark-gray);
+        }
+
+        .btn-danger {
+            background: var(--danger-red);
+            color: white;
+        }
+
+        .btn-excel {
+            background: linear-gradient(135deg, #217346, #21a366);
+            color: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        /* Form Styles */
+        .form-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            background: var(--white);
+            font-family: inherit;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        /* User Cards Grid */
+        .user-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .user-card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-blue);
+        }
+
+        .user-card.active {
+            border-color: var(--success-green);
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        }
+
+        .user-card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+            margin-bottom: 0.25rem;
+        }
+
+        .user-department {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            margin-bottom: 0.25rem;
+        }
+
+        .user-asset-count {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--success-green);
+            background: #d1fae5;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        /* Asset List */
+        .asset-list {
+            margin-top: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .asset-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .asset-list::-webkit-scrollbar-track {
+            background: var(--light-gray);
+            border-radius: 3px;
+        }
+
+        .asset-list::-webkit-scrollbar-thumb {
+            background: var(--medium-gray);
+            border-radius: 3px;
+        }
+
+        .asset-item {
+            background: var(--light-gray);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-left: 4px solid var(--secondary-blue);
+            transition: all 0.2s ease;
+        }
+
+        .asset-item:hover {
+            background: #e5e7eb;
+        }
+
+        .asset-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .asset-title {
+            font-weight: 600;
+            color: var(--dark-gray);
+            font-size: 1rem;
+        }
+
+        .asset-type {
+            font-size: 0.8rem;
+            background: var(--primary-blue);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .asset-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+        }
+
+        .asset-detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            color: var(--dark-gray);
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: var(--dark-gray);
+            font-weight: 500;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-inuse { background: #dbeafe; color: #1e40af; }
+        .status-storage { background: #fef3c7; color: #92400e; }
+        .status-repair { background: #fee2e2; color: #991b1b; }
+        .status-retired { background: #f3f4f6; color: #6b7280; }
+
+        /* Report Preview */
+        .report-preview {
+            display: none;
+            margin-top: 2rem;
+            animation: slideInUp 0.3s ease;
+        }
+
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .report-header {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            border-radius: 12px 12px 0 0;
+            margin-bottom: 0;
+        }
+
+        .report-body {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 0 0 12px 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .report-user-info {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--light-gray);
+        }
+
+        .report-user-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .report-user-details {
+            flex: 1;
+        }
+
+        .report-user-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark-gray);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-user-department {
+            font-size: 1rem;
+            color: var(--medium-gray);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-box {
+            background: var(--light-gray);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--medium-gray);
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+        }
+
+        .report-table th {
+            background: var(--primary-blue);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .report-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        .report-table tr:hover {
+            background: var(--light-gray);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .toast {
+            background: var(--white);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            animation: slideInUp 0.3s ease;
+            border-left: 4px solid var(--success-green);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+        }
+
+        .toast-success { border-left-color: var(--success-green); }
+        .toast-error { border-left-color: var(--danger-red); }
+        .toast-warning { border-left-color: var(--warning-yellow); }
+        .toast-info { border-left-color: var(--secondary-blue); }
+
+        .toast-success .toast-icon { color: var(--success-green); }
+        .toast-error .toast-icon { color: var(--danger-red); }
+        .toast-warning .toast-icon { color: var(--warning-yellow); }
+        .toast-info .toast-icon { color: var(--secondary-blue); }
+
+        /* Footer */
+        .footer {
+            background: var(--white);
+            padding: 1.5rem 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .copyright {
+            color: var(--medium-gray);
+            font-size: 0.8rem;
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: var(--medium-gray);
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--light-gray);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Excel Export Progress */
+        .progress-container {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            z-index: 1001;
+            min-width: 300px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: var(--light-gray);
+            border-radius: 5px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-green), var(--primary-blue));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .header {
+                padding: 1rem 2rem;
+            }
+
+            .logo {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+
+            .company-name {
+                font-size: 1.4rem;
+            }
+
+            .department-name {
+                font-size: 0.8rem;
+            }
+
+            .mobile-nav {
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .nav-tab {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .main-container {
+                padding: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .form-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: row;
+            }
+
+            .btn {
+                min-width: 120px;
+            }
+
+            .user-cards-grid {
+                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            }
+
+            .toast-container {
+                right: 20px;
+                left: auto;
+                max-width: 350px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-nav {
+                gap: 2rem;
+            }
+
+            .form-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .user-cards-grid {
+                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            }
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            
+            .report-preview {
+                display: block !important;
+                margin: 0;
+                box-shadow: none;
+            }
+            
+            .report-header, .report-body {
+                box-shadow: none;
+                border-radius: 0;
+            }
+            
+            body {
+                background: white;
+                color: black;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase Status Indicator -->
+    <div class="firebase-status firebase-disconnected" id="firebaseStatus">
+        <i class="fas fa-plug"></i>
+        <span>Connecting to Firebase...</span>
+    </div>
+
+    <!-- Excel Export Progress -->
+    <div class="progress-container" id="excelProgress">
+        <div class="card-icon" style="margin: 0 auto 1rem;">
+            <i class="fas fa-file-excel"></i>
+        </div>
+        <h3>Generating Excel Report</h3>
+        <p id="progressText">Preparing data...</p>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div id="progressDetails" style="font-size: 0.8rem; color: var(--medium-gray); margin-top: 0.5rem;"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="logo-text">
+                <div class="company-name">CTM IT Department</div>
+                <div class="department-name">User Asset Report Generator</div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <button class="nav-tab" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='scanqr.html'">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='addasset.html'">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Asset</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventory.html'">
+                <i class="fas fa-boxes-stacked"></i>
+                <span>Inventory</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='firebase.html'">
+                <i class="fas fa-database"></i>
+                <span>Firebase</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='fullreport.html'">
+                <i class="fas fa-file-alt"></i>
+                <span>Full Report</span>
+            </button>
+            <button class="nav-tab active" onclick="window.location.href='inventorymap.html'">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Inventory Map</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- User Report Page -->
+        <div class="page-header">
+            <h1 class="page-title">Asset Assignment Report Generator</h1>
+            <p class="page-subtitle">Generate detailed PDF and Excel reports for individual users with all assigned assets</p>
+        </div>
+
+        <!-- Search and Filter Card -->
+        <div class="card no-print">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <div class="card-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h2 class="card-title">Search & Filter Assets</h2>
+                </div>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Search Asset or User</label>
+                    <input type="text" class="form-input" id="searchAsset" placeholder="Enter asset tag, user name, or department..." onkeyup="filterAssets()">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Asset Type Filter</label>
+                        <select class="form-select" id="filterType" onchange="filterAssets()">
+                            <option value="">All Asset Types</option>
+                            <option value="Desktop PC">Desktop PC</option>
+                            <option value="Laptop PC">Laptop PC</option>
+                            <option value="Printer">Printer</option>
+                            <option value="Mobile Phone">Mobile Phone</option>
+                            <option value="Network Switch">Network Switch</option>
+                            <option value="Router">Router</option>
+                            <option value="Server">Server</option>
+                            <option value="Monitor">Monitor</option>
+                            <option value="Scanner">Scanner</option>
+                            <option value="UPS">UPS</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Status Filter</label>
+                        <select class="form-select" id="filterStatus" onchange="filterAssets()">
+                            <option value="">All Status</option>
+                            <option value="Active">Active</option>
+                            <option value="In Use">In Use</option>
+                            <option value="In Storage">In Storage</option>
+                            <option value="Under Repair">Under Repair</option>
+                            <option value="Retired">Retired</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="loadAllAssets()">
+                    <i class="fas fa-sync"></i> Refresh Assets
+                </button>
+                <button class="btn btn-excel" onclick="exportAllUsersToExcel()">
+                    <i class="fas fa-file-excel"></i> Export All Users to Excel
+                </button>
+                <button class="btn btn-success" onclick="generateModernUserAssetReport()">
+                    <i class="fas fa-file-pdf"></i> Generate Modern PDF Report
+                </button>
+                <button class="btn btn-warning" onclick="clearFilters()">
+                    <i class="fas fa-filter"></i> Clear Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- Users List Card -->
+        <div class="card no-print">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <div class="card-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h2 class="card-title">Users with Assigned Assets</h2>
+                    <span id="usersCount" style="background: var(--primary-blue); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">0 users</span>
+                </div>
+                <button class="btn btn-excel" onclick="exportSelectedUserToExcel()" id="exportSelectedUserBtn" style="display: none;">
+                    <i class="fas fa-file-excel"></i> Export Selected User to Excel
+                </button>
+            </div>
+            
+            <div class="user-cards-grid" id="usersList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading users from database...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Assets Report Card -->
+        <div class="card no-print">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <div class="card-icon">
+                        <i class="fas fa-list-alt"></i>
+                    </div>
+                    <h2 class="card-title">All Assets</h2>
+                    <span id="assetsCount" style="background: var(--success-green); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">0 assets</span>
+                </div>
+            </div>
+            
+            <div class="asset-list" id="allAssetsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading assets from database...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected User Report Preview -->
+        <div class="report-preview" id="reportPreview">
+            <div class="report-header" id="reportHeader">
+                <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">CTM IT DEPARTMENT</h1>
+                <p style="font-size: 1.2rem; opacity: 0.9;">Asset Assignment Report</p>
+                <p style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.8;">User Asset Inventory Report</p>
+            </div>
+            
+            <div class="report-body">
+                <div class="report-user-info" id="reportUserInfo">
+                    <div class="report-user-avatar" id="userAvatar">JD</div>
+                    <div class="report-user-details">
+                        <h2 class="report-user-name" id="userFullName">John Doe</h2>
+                        <p class="report-user-department" id="userDepartment">IT Department</p>
+                        <p style="color: var(--medium-gray);" id="reportDate">Report Generated: January 1, 2024</p>
+                        <p style="color: var(--medium-gray); font-size: 0.9rem;" id="reportId">Report ID: CTM-REP-001</p>
+                    </div>
+                </div>
+                
+                <div class="report-stats" id="userStats">
+                    <div class="stat-box">
+                        <div class="stat-value" id="totalAssets">0</div>
+                        <div class="stat-label">Total Assets</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="activeAssets">0</div>
+                        <div class="stat-label">Active Assets</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="totalValue">LKR 0</div>
+                        <div class="stat-label">Total Value</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="assetTypes">0</div>
+                        <div class="stat-label">Asset Types</div>
+                    </div>
+                </div>
+                
+                <h3 style="color: var(--primary-blue); margin-bottom: 1rem; border-bottom: 2px solid var(--primary-blue); padding-bottom: 0.5rem;">Assigned Assets Details</h3>
+                
+                <div class="asset-list" id="reportAssetList">
+                    <!-- Asset items will be loaded here -->
+                </div>
+                
+                <div style="margin-top: 2rem; padding-top: 1rem; border-top: 2px solid var(--light-gray);">
+                    <h4 style="color: var(--dark-gray); margin-bottom: 0.5rem;">Asset Summary</h4>
+                    <div id="assetSummary" style="color: var(--medium-gray); font-size: 0.9rem;">
+                        <!-- Summary will be loaded here -->
+                    </div>
+                </div>
+                
+                <div style="margin-top: 3rem; text-align: center; color: var(--medium-gray); font-size: 0.8rem;">
+                    <p>This report was automatically generated by CTM IT Asset Management System</p>
+                    <p>Report ID: <span id="reportIdDisplay" style="font-weight: 600;">CTM-REP-001</span></p>
+                    <p>Generated on: <span id="generationTime">January 1, 2024 10:00 AM</span></p>
+                    <p style="margin-top: 1rem;">© 2024 CTM IT Department - All Rights Reserved</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Actions -->
+        <div class="card no-print" id="reportActions" style="display: none;">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <div class="card-icon">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <h2 class="card-title">Report Actions</h2>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-excel" onclick="exportSelectedUserToExcel()">
+                    <i class="fas fa-file-excel"></i> Export to Excel
+                </button>
+                <button class="btn btn-primary" onclick="generateModernUserAssetReport()">
+                    <i class="fas fa-file-pdf"></i> Generate Modern PDF Report
+                </button>
+                <button class="btn btn-secondary" onclick="generatePDFReport()">
+                    <i class="fas fa-file-alt"></i> Generate Standard PDF
+                </button>
+                <button class="btn btn-success" onclick="printReport()">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button class="btn btn-warning" onclick="closeReport()">
+                    <i class="fas fa-times"></i> Close Preview
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer no-print">
+        <div class="footer-content">
+            <div class="footer-logo">CTM IT Department - Professional Asset Reporting System</div>
+            <div class="copyright">
+                &copy; 2024 User Asset Reports powered by Lakmal Sanjeewa Jayawickrama
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==============================================
+        // FIREBASE CONFIGURATION
+        // ==============================================
+        
+        // Your Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyABuZWbNXGJ359mbctDsX-SSxwkUd3v1KY",
+            authDomain: "student-management-syste-d39a3.firebaseapp.com",
+            databaseURL: "https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "student-management-syste-d39a3",
+            storageBucket: "student-management-syste-d39a3.firebasestorage.app",
+            messagingSenderId: "36925529487",
+            appId: "1:36925529487:web:385e1af7ba174f8440fffa"
+        };
+
+        // Initialize Firebase
+        let firebaseApp;
+        let database;
+        let isFirebaseInitialized = false;
+        let assetsRef;
+        let connectionRef;
+
+        // ==============================================
+        // GLOBAL VARIABLES
+        // ==============================================
+        let assetsDB = {};
+        let usersDB = {};
+        let firebaseConnected = false;
+        let selectedUser = null;
+        let currentReportAssets = [];
+        let allUsers = [];
+        let filteredUsers = [];
+        let allAssetsList = [];
+        let filteredAssets = [];
+
+        // ==============================================
+        // FIXED FIREBASE INITIALIZATION
+        // ==============================================
+        function initializeFirebase() {
+            try {
+                // Check if Firebase app is already initialized
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                } else {
+                    firebaseApp = firebase.app();
+                }
+                
+                database = firebase.database();
+                isFirebaseInitialized = true;
+                
+                // Set database references
+                assetsRef = database.ref('assets');
+                connectionRef = database.ref('.info/connected');
+                
+                // Set up connection status listener
+                connectionRef.on('value', (snapshot) => {
+                    firebaseConnected = snapshot.val();
+                    updateConnectionStatus(firebaseConnected);
+                    
+                    if (firebaseConnected) {
+                        showToast('Connected to Firebase Database', 'success');
+                        loadAllAssets();
+                    } else {
+                        showToast('Disconnected from Firebase. Working offline.', 'warning');
+                        loadFromLocalBackup();
+                    }
+                });
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showToast(`Firebase connection error: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+                
+                // Load from local backup if available
+                loadFromLocalBackup();
+                
+                return false;
+            }
+        }
+
+        // ==============================================
+        // CONNECTION STATUS UPDATES
+        // ==============================================
+        function updateConnectionStatus(connected) {
+            const firebaseStatus = document.getElementById('firebaseStatus');
+            
+            if (connected) {
+                firebaseStatus.className = 'firebase-status firebase-connected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Connected to Firebase</span>';
+            } else {
+                firebaseStatus.className = 'firebase-status firebase-disconnected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Disconnected from Firebase</span>';
+            }
+        }
+
+        // ==============================================
+        // DATA LOADING FUNCTIONS
+        // ==============================================
+        function loadAllAssets() {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                loadFromLocalBackup();
+                return;
+            }
+
+            assetsRef.on('value', (snapshot) => {
+                assetsDB = snapshot.val() || {};
+                showToast(`Loaded ${Object.keys(assetsDB).length} assets from Firebase`, 'success');
+                loadAllUsers();
+                updateAllAssetsList();
+            }, (error) => {
+                console.error('Error loading assets:', error);
+                showToast('Error loading assets from Firebase', 'error');
+                loadFromLocalBackup();
+            });
+        }
+
+        function loadFromLocalBackup() {
+            const backup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+            assetsDB = backup;
+            showToast(`Loaded ${Object.keys(assetsDB).length} assets from local backup`, 'warning');
+            loadAllUsers();
+            updateAllAssetsList();
+        }
+
+        // ==============================================
+        // USER MANAGEMENT FUNCTIONS
+        // ==============================================
+        function loadAllUsers() {
+            usersDB = {};
+            allUsers = [];
+            
+            // Clear existing content
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading users...</p></div>';
+            
+            // Extract unique users from assets
+            Object.values(assetsDB).forEach(asset => {
+                if (asset.assignedTo && asset.assignedTo.trim() !== '' && asset.assignedTo !== 'Not assigned') {
+                    const userName = asset.assignedTo.trim();
+                    
+                    if (!usersDB[userName]) {
+                        // Try to extract department from asset data
+                        let department = extractDepartmentFromAsset(asset);
+                        
+                        usersDB[userName] = {
+                            name: userName,
+                            department: department,
+                            assets: []
+                        };
+                    }
+                    
+                    usersDB[userName].assets.push(asset);
+                }
+            });
+            
+            // Convert to array and sort
+            allUsers = Object.values(usersDB).sort((a, b) => a.name.localeCompare(b.name));
+            filteredUsers = [...allUsers];
+            
+            // Update UI
+            updateUsersList();
+            updateUsersCount();
+            
+            if (allUsers.length === 0) {
+                usersList.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--medium-gray);">
+                        <i class="fas fa-users" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                        <h3>No Users Found</h3>
+                        <p>No assets are assigned to users yet.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function extractDepartmentFromAsset(asset) {
+            // Try different field names from your database structure
+            if (asset.location && asset.location.includes('Department')) {
+                return asset.location;
+            }
+            if (asset.assignedTo && asset.assignedTo.includes('Department')) {
+                return asset.assignedTo;
+            }
+            if (asset.department) {
+                return asset.department;
+            }
+            return 'IT Department';
+        }
+
+        function updateUsersList() {
+            const usersList = document.getElementById('usersList');
+            
+            if (filteredUsers.length === 0) {
+                usersList.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--medium-gray);">
+                        <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                        <p>No users match your search criteria</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            usersList.innerHTML = filteredUsers.map(user => {
+                const initials = getInitials(user.name);
+                const assetCount = user.assets.length;
+                const activeAssets = user.assets.filter(a => 
+                    a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+                ).length;
+                
+                return `
+                    <div class="user-card ${selectedUser && selectedUser.name === user.name ? 'active' : ''}" 
+                         onclick="selectUser('${user.name.replace(/'/g, "\\'")}')">
+                        <div class="user-card-header">
+                            <div class="user-avatar">${initials}</div>
+                            <div class="user-info">
+                                <div class="user-name">${user.name}</div>
+                                <div class="user-department">${user.department}</div>
+                                <div class="user-asset-count">${assetCount} assets assigned</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--medium-gray);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Total Assets:</span>
+                                <span style="font-weight: 600;">${assetCount}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Active Assets:</span>
+                                <span style="font-weight: 600; color: var(--success-green);">${activeAssets}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateUsersCount() {
+            const usersCount = document.getElementById('usersCount');
+            usersCount.textContent = `${filteredUsers.length} users`;
+        }
+
+        function getInitials(name) {
+            return name.split(' ')
+                .map(word => word[0])
+                .join('')
+                .toUpperCase()
+                .substring(0, 2);
+        }
+
+        // ==============================================
+        // ASSET LIST MANAGEMENT
+        // ==============================================
+        function updateAllAssetsList() {
+            allAssetsList = Object.values(assetsDB).filter(asset => asset && asset.assetTag);
+            filteredAssets = [...allAssetsList];
+            
+            updateAssetsListDisplay();
+            updateAssetsCount();
+        }
+
+        function updateAssetsListDisplay() {
+            const assetsList = document.getElementById('allAssetsList');
+            
+            if (filteredAssets.length === 0) {
+                assetsList.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--medium-gray);">
+                        <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                        <p>No assets match your search criteria</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            assetsList.innerHTML = filteredAssets.map(asset => {
+                const assetType = asset.assetType || asset.type || 'Unknown';
+                const assignedTo = asset.assignedTo || 'Not assigned';
+                const status = asset.status || asset.condition || 'Active';
+                const purchasePrice = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                const serialNumber = asset.serialNumber || 'N/A';
+                const location = asset.location || 'Unknown';
+                const purchaseDate = asset.purchaseDate || 'N/A';
+                
+                const statusClass = `status-${status.toLowerCase().replace(' ', '')}`;
+                
+                return `
+                    <div class="asset-item">
+                        <div class="asset-header">
+                            <div class="asset-title">${asset.assetTag || 'No Tag'}</div>
+                            <div class="asset-type">${assetType}</div>
+                        </div>
+                        <div class="asset-details">
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Model:</span>
+                                <span class="detail-value">${asset.brandModel || asset.model || 'N/A'}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Assigned To:</span>
+                                <span class="detail-value">${assignedTo}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Serial:</span>
+                                <span class="detail-value">${serialNumber}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Location:</span>
+                                <span class="detail-value">${location}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Purchase Date:</span>
+                                <span class="detail-value">${purchaseDate}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Value:</span>
+                                <span class="detail-value">LKR ${purchasePrice.toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div class="status-badge ${statusClass}">${status}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateAssetsCount() {
+            const assetsCount = document.getElementById('assetsCount');
+            assetsCount.textContent = `${filteredAssets.length} assets`;
+        }
+
+        // ==============================================
+        // USER SELECTION AND REPORT GENERATION
+        // ==============================================
+        function selectUser(userName) {
+            const user = usersDB[userName];
+            if (!user) return;
+            
+            selectedUser = user;
+            
+            // Update UI
+            document.querySelectorAll('.user-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            const userCards = document.querySelectorAll('.user-card');
+            userCards.forEach(card => {
+                if (card.querySelector('.user-name').textContent === userName) {
+                    card.classList.add('active');
+                }
+            });
+            
+            // Show export button for selected user
+            document.getElementById('exportSelectedUserBtn').style.display = 'inline-flex';
+            
+            // Generate report preview
+            generateReportPreview(user);
+            
+            // Show report preview and actions
+            document.getElementById('reportPreview').style.display = 'block';
+            document.getElementById('reportActions').style.display = 'block';
+            
+            // Scroll to report preview
+            document.getElementById('reportPreview').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function generateReportPreview(user) {
+            if (!user) return;
+            
+            const initials = getInitials(user.name);
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            const formattedTime = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            // Update user info
+            document.getElementById('userAvatar').textContent = initials;
+            document.getElementById('userFullName').textContent = user.name;
+            document.getElementById('userDepartment').textContent = user.department;
+            document.getElementById('reportDate').textContent = `Report Generated: ${formattedDate}`;
+            
+            // Generate report ID
+            const reportId = `CTM-${user.name.substring(0, 3).toUpperCase()}-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+            document.getElementById('reportId').textContent = `Report ID: ${reportId}`;
+            document.getElementById('reportIdDisplay').textContent = reportId;
+            document.getElementById('generationTime').textContent = `${formattedDate} ${formattedTime}`;
+            
+            // Calculate statistics
+            currentReportAssets = user.assets;
+            const totalAssets = user.assets.length;
+            const activeAssets = user.assets.filter(a => 
+                a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+            ).length;
+            const totalValue = user.assets.reduce((sum, asset) => {
+                const price = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                return sum + price;
+            }, 0);
+            const assetTypes = [...new Set(user.assets.map(a => a.assetType || a.type || 'Unknown'))].length;
+            
+            // Update stats
+            document.getElementById('totalAssets').textContent = totalAssets;
+            document.getElementById('activeAssets').textContent = activeAssets;
+            document.getElementById('totalValue').textContent = `LKR ${totalValue.toLocaleString()}`;
+            document.getElementById('assetTypes').textContent = assetTypes;
+            
+            // Generate asset list
+            const assetList = document.getElementById('reportAssetList');
+            assetList.innerHTML = user.assets.map(asset => {
+                const status = asset.status || asset.condition || 'Active';
+                const statusClass = `status-${status.toLowerCase().replace(' ', '')}`;
+                const purchasePrice = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                const assetType = asset.assetType || asset.type || 'Unknown';
+                const model = asset.brandModel || asset.model || 'Unknown';
+                const serial = asset.serialNumber || 'N/A';
+                const location = asset.location || 'N/A';
+                const purchaseDate = asset.purchaseDate || 'N/A';
+                
+                return `
+                    <div class="asset-item">
+                        <div class="asset-header">
+                            <div class="asset-title">${asset.assetTag || 'No Tag'} - ${model}</div>
+                            <div class="asset-type">${assetType}</div>
+                        </div>
+                        <div class="asset-details">
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Serial Number:</span>
+                                <span class="detail-value">${serial}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Location:</span>
+                                <span class="detail-value">${location}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Purchase Date:</span>
+                                <span class="detail-value">${purchaseDate}</span>
+                            </div>
+                            <div class="asset-detail-item">
+                                <span class="detail-label">Value:</span>
+                                <span class="detail-value">LKR ${purchasePrice.toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div class="status-badge ${statusClass}">${status}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Generate summary
+            const summary = document.getElementById('assetSummary');
+            const typeBreakdown = {};
+            user.assets.forEach(asset => {
+                const type = asset.assetType || asset.type || 'Unknown';
+                typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
+            });
+            
+            const summaryHTML = `
+                <p><strong>User:</strong> ${user.name} (${user.department})</p>
+                <p><strong>Total Assets Assigned:</strong> ${totalAssets}</p>
+                <p><strong>Active/In Use Assets:</strong> ${activeAssets}</p>
+                <p><strong>Total Asset Value:</strong> LKR ${totalValue.toLocaleString()}</p>
+                <p><strong>Asset Type Breakdown:</strong></p>
+                <ul style="margin-left: 1.5rem;">
+                    ${Object.entries(typeBreakdown).map(([type, count]) => 
+                        `<li>${type}: ${count} asset${count !== 1 ? 's' : ''}</li>`
+                    ).join('')}
+                </ul>
+            `;
+            
+            summary.innerHTML = summaryHTML;
+        }
+
+        // ==============================================
+        // EXCEL EXPORT FUNCTIONS WITH COMPLETE DETAILS
+        // ==============================================
+        async function exportSelectedUserToExcel() {
+            if (!selectedUser) {
+                showToast('Please select a user first', 'error');
+                return;
+            }
+
+            await showProgress('Generating Excel report for ' + selectedUser.name + '...');
+            
+            try {
+                // Create a new workbook
+                const workbook = new ExcelJS.Workbook();
+                workbook.creator = 'CTM IT Asset Management System';
+                workbook.lastModifiedBy = 'CTM IT Department';
+                workbook.created = new Date();
+                workbook.modified = new Date();
+                
+                // ==================== BASIC INFORMATION SHEET ====================
+                await updateProgress(5, 'Creating Basic Information sheet...');
+                
+                const basicSheet = workbook.addWorksheet('Basic Information');
+                
+                // Add User Information Header
+                basicSheet.mergeCells('A1:E1');
+                basicSheet.getCell('A1').value = 'USER INFORMATION';
+                basicSheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+                basicSheet.getCell('A1').fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1E3A8A' }
+                };
+                basicSheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // User Details
+                basicSheet.addRow(['User Name:', selectedUser.name]);
+                basicSheet.addRow(['Department:', selectedUser.department]);
+                basicSheet.addRow(['Report Generated:', new Date().toLocaleString()]);
+                basicSheet.addRow(['Total Assets:', selectedUser.assets.length]);
+                
+                // Style user details
+                for (let i = 2; i <= 5; i++) {
+                    basicSheet.getCell(`A${i}`).font = { bold: true };
+                    basicSheet.getCell(`B${i}`).font = { bold: true, color: { argb: 'FF1E3A8A' } };
+                }
+                
+                basicSheet.addRow([]); // Empty row
+                
+                // Asset Summary Header
+                basicSheet.mergeCells('A7:E7');
+                basicSheet.getCell('A7').value = 'ASSET SUMMARY';
+                basicSheet.getCell('A7').font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+                basicSheet.getCell('A7').fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF10B981' }
+                };
+                basicSheet.getCell('A7').alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Calculate statistics
+                const totalAssets = selectedUser.assets.length;
+                const activeAssets = selectedUser.assets.filter(a => 
+                    a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+                ).length;
+                const totalValue = selectedUser.assets.reduce((sum, asset) => {
+                    const price = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                    return sum + price;
+                }, 0);
+                const assetTypes = [...new Set(selectedUser.assets.map(a => a.assetType || a.type || 'Unknown'))].length;
+                
+                // Add summary data
+                basicSheet.addRow(['Total Assets:', totalAssets]);
+                basicSheet.addRow(['Active Assets:', activeAssets]);
+                basicSheet.addRow(['Total Value:', `LKR ${totalValue.toLocaleString()}`]);
+                basicSheet.addRow(['Asset Types:', assetTypes]);
+                
+                // Asset type breakdown
+                basicSheet.addRow([]); // Empty row
+                basicSheet.addRow(['Asset Type Breakdown:']);
+                basicSheet.getCell('A13').font = { bold: true };
+                
+                const typeBreakdown = {};
+                selectedUser.assets.forEach(asset => {
+                    const type = asset.assetType || asset.type || 'Unknown';
+                    typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
+                });
+                
+                Object.entries(typeBreakdown).forEach(([type, count], index) => {
+                    basicSheet.addRow([type, count]);
+                });
+                
+                // Status breakdown
+                basicSheet.addRow([]); // Empty row
+                basicSheet.addRow(['Status Breakdown:']);
+                basicSheet.getCell(`A${14 + Object.keys(typeBreakdown).length}`).font = { bold: true };
+                
+                const statusBreakdown = {};
+                selectedUser.assets.forEach(asset => {
+                    const status = asset.status || asset.condition || 'Active';
+                    statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
+                });
+                
+                Object.entries(statusBreakdown).forEach(([status, count], index) => {
+                    const rowNum = 15 + Object.keys(typeBreakdown).length + index;
+                    basicSheet.getCell(`A${rowNum}`).value = status;
+                    basicSheet.getCell(`B${rowNum}`).value = count;
+                    
+                    // Color code based on status
+                    let color = 'FFD1FAE5'; // Light green for Active
+                    if (status === 'Under Repair') color = 'FFFEE2E2';
+                    else if (status === 'In Storage') color = 'FFFEF3C7';
+                    else if (status === 'Retired') color = 'FFF3F4F6';
+                    
+                    basicSheet.getCell(`A${rowNum}`).fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: color }
+                    };
+                });
+                
+                // Auto-size columns
+                basicSheet.columns = [
+                    { width: 25 },
+                    { width: 20 },
+                    { width: 25 },
+                    { width: 25 },
+                    { width: 25 }
+                ];
+                
+                // ==================== DETAILED ASSETS SHEET ====================
+                await updateProgress(20, 'Creating Detailed Assets sheet...');
+                
+                const detailsSheet = workbook.addWorksheet('Detailed Assets');
+                
+                // Define columns for detailed assets
+                detailsSheet.columns = [
+                    { header: 'Asset Tag', key: 'assetTag', width: 15 },
+                    { header: 'Asset Type', key: 'assetType', width: 15 },
+                    { header: 'Brand', key: 'brand', width: 15 },
+                    { header: 'Model', key: 'model', width: 20 },
+                    { header: 'Serial Number', key: 'serialNumber', width: 20 },
+                    { header: 'Asset ID', key: 'assetId', width: 15 },
+                    { header: 'Status', key: 'status', width: 12 },
+                    { header: 'Condition', key: 'condition', width: 12 },
+                    { header: 'Location', key: 'location', width: 15 },
+                    { header: 'Department', key: 'department', width: 15 },
+                    { header: 'Purchase Date', key: 'purchaseDate', width: 12 },
+                    { header: 'Purchase Price', key: 'purchasePrice', width: 15 },
+                    { header: 'Current Value', key: 'currentValue', width: 15 },
+                    { header: 'Warranty Until', key: 'warrantyUntil', width: 12 },
+                    { header: 'Assigned Date', key: 'assignedDate', width: 12 },
+                    { header: 'Last Maintenance', key: 'lastMaintenance', width: 12 },
+                    { header: 'Next Maintenance', key: 'nextMaintenance', width: 12 },
+                    { header: 'Insurance Info', key: 'insuranceInfo', width: 20 },
+                    { header: 'Depreciation Rate', key: 'depreciationRate', width: 15 },
+                    { header: 'QR Code', key: 'qrCode', width: 10 }
+                ];
+                
+                // Style header row
+                const headerRow = detailsSheet.getRow(1);
+                headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                headerRow.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1E3A8A' }
+                };
+                headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Add asset data
+                await updateProgress(30, 'Adding asset details...');
+                
+                selectedUser.assets.forEach((asset, index) => {
+                    const row = detailsSheet.addRow({
+                        assetTag: asset.assetTag || 'N/A',
+                        assetType: asset.assetType || asset.type || 'N/A',
+                        brand: asset.brand || asset.manufacturer || 'N/A',
+                        model: asset.model || asset.brandModel || 'N/A',
+                        serialNumber: asset.serialNumber || 'N/A',
+                        assetId: asset.assetId || asset.id || `ASSET-${index + 1}`,
+                        status: asset.status || 'Active',
+                        condition: asset.condition || 'Good',
+                        location: asset.location || 'N/A',
+                        department: asset.department || selectedUser.department,
+                        purchaseDate: asset.purchaseDate || 'N/A',
+                        purchasePrice: parseFloat(asset.purchasePrice || asset.price || asset.value || 0),
+                        currentValue: parseFloat(asset.currentValue || asset.purchasePrice || asset.value || 0),
+                        warrantyUntil: asset.warrantyUntil || asset.warrantyEnd || 'N/A',
+                        assignedDate: asset.assignedDate || 'N/A',
+                        lastMaintenance: asset.lastMaintenance || 'N/A',
+                        nextMaintenance: asset.nextMaintenance || 'N/A',
+                        insuranceInfo: asset.insuranceInfo || 'No insurance',
+                        depreciationRate: asset.depreciationRate || '15% per year',
+                        qrCode: asset.qrCode || 'Yes'
+                    });
+                    
+                    // Apply formatting based on status
+                    const status = asset.status || 'Active';
+                    let color = 'FFD1FAE5'; // Light green for Active
+                    if (status === 'Under Repair') color = 'FFFEE2E2';
+                    else if (status === 'In Storage') color = 'FFFEF3C7';
+                    else if (status === 'Retired') color = 'FFF3F4F6';
+                    
+                    row.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: color }
+                    };
+                    
+                    // Update progress
+                    if (index % 5 === 0) {
+                        updateProgress(30 + Math.floor((index / selectedUser.assets.length) * 30), 
+                                     `Processing asset ${index + 1} of ${selectedUser.assets.length}...`);
+                    }
+                });
+                
+                // ==================== SPECIFICATIONS SHEET ====================
+                await updateProgress(60, 'Creating Specifications sheet...');
+                
+                const specsSheet = workbook.addWorksheet('Specifications');
+                
+                // Specifications header
+                specsSheet.mergeCells('A1:F1');
+                specsSheet.getCell('A1').value = 'ASSET SPECIFICATIONS';
+                specsSheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+                specsSheet.getCell('A1').fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF10B981' }
+                };
+                specsSheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Specifications columns
+                specsSheet.columns = [
+                    { header: 'Asset Tag', key: 'assetTag', width: 15 },
+                    { header: 'Asset Type', key: 'assetType', width: 15 },
+                    { header: 'Processor/CPU', key: 'processor', width: 20 },
+                    { header: 'RAM', key: 'ram', width: 10 },
+                    { header: 'Storage', key: 'storage', width: 15 },
+                    { header: 'Operating System', key: 'os', width: 20 },
+                    { header: 'Graphics Card', key: 'graphics', width: 20 },
+                    { header: 'Screen Size', key: 'screenSize', width: 12 },
+                    { header: 'Resolution', key: 'resolution', width: 15 },
+                    { header: 'Network', key: 'network', width: 15 },
+                    { header: 'Ports', key: 'ports', width: 20 },
+                    { header: 'Battery', key: 'battery', width: 15 },
+                    { header: 'Power Supply', key: 'powerSupply', width: 15 },
+                    { header: 'Weight', key: 'weight', width: 10 },
+                    { header: 'Dimensions', key: 'dimensions', width: 15 }
+                ];
+                
+                // Style specifications header
+                const specsHeader = specsSheet.getRow(3);
+                specsHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                specsHeader.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1E3A8A' }
+                };
+                specsHeader.alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Add specifications data
+                selectedUser.assets.forEach((asset, index) => {
+                    const specs = asset.specifications || {};
+                    const row = specsSheet.addRow({
+                        assetTag: asset.assetTag || 'N/A',
+                        assetType: asset.assetType || asset.type || 'N/A',
+                        processor: specs.processor || specs.cpu || 'N/A',
+                        ram: specs.ram || 'N/A',
+                        storage: specs.storage || specs.hdd || specs.ssd || 'N/A',
+                        os: specs.os || specs.operatingSystem || 'N/A',
+                        graphics: specs.graphics || specs.gpu || 'N/A',
+                        screenSize: specs.screenSize || specs.display || 'N/A',
+                        resolution: specs.resolution || 'N/A',
+                        network: specs.network || specs.wifi || specs.ethernet || 'N/A',
+                        ports: specs.ports || 'USB, HDMI, etc.',
+                        battery: specs.battery || 'N/A',
+                        powerSupply: specs.powerSupply || specs.psu || 'N/A',
+                        weight: specs.weight || 'N/A',
+                        dimensions: specs.dimensions || 'N/A'
+                    });
+                    
+                    // Alternate row colors
+                    if (index % 2 === 0) {
+                        row.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFF3F4F6' }
+                        };
+                    }
+                    
+                    // Update progress
+                    if (index % 5 === 0) {
+                        updateProgress(60 + Math.floor((index / selectedUser.assets.length) * 15), 
+                                     `Adding specs for asset ${index + 1}...`);
+                    }
+                });
+                
+                // ==================== LICENSE INFORMATION SHEET ====================
+                await updateProgress(75, 'Creating License Information sheet...');
+                
+                const licenseSheet = workbook.addWorksheet('License Information');
+                
+                // License header
+                licenseSheet.mergeCells('A1:G1');
+                licenseSheet.getCell('A1').value = 'SOFTWARE LICENSES & SUBSCRIPTIONS';
+                licenseSheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+                licenseSheet.getCell('A1').fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF3B82F6' }
+                };
+                licenseSheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // License columns
+                licenseSheet.columns = [
+                    { header: 'Asset Tag', key: 'assetTag', width: 15 },
+                    { header: 'Software Name', key: 'softwareName', width: 25 },
+                    { header: 'License Type', key: 'licenseType', width: 15 },
+                    { header: 'License Key', key: 'licenseKey', width: 25 },
+                    { header: 'Version', key: 'version', width: 10 },
+                    { header: 'Purchase Date', key: 'purchaseDate', width: 12 },
+                    { header: 'Expiry Date', key: 'expiryDate', width: 12 },
+                    { header: 'Vendor', key: 'vendor', width: 20 },
+                    { header: 'Cost', key: 'cost', width: 15 },
+                    { header: 'Renewal Date', key: 'renewalDate', width: 12 },
+                    { header: 'Users', key: 'users', width: 10 },
+                    { header: 'Notes', key: 'notes', width: 30 }
+                ];
+                
+                // Style license header
+                const licenseHeader = licenseSheet.getRow(3);
+                licenseHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                licenseHeader.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1E3A8A' }
+                };
+                licenseHeader.alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Add license data
+                let licenseRowIndex = 4;
+                selectedUser.assets.forEach((asset, assetIndex) => {
+                    const licenses = asset.licenses || asset.software || [];
+                    
+                    if (Array.isArray(licenses) && licenses.length > 0) {
+                        licenses.forEach((license, licenseIndex) => {
+                            const row = licenseSheet.addRow({
+                                assetTag: asset.assetTag || 'N/A',
+                                softwareName: license.name || license.softwareName || 'N/A',
+                                licenseType: license.type || license.licenseType || 'Perpetual',
+                                licenseKey: license.key || license.licenseKey || 'N/A',
+                                version: license.version || 'N/A',
+                                purchaseDate: license.purchaseDate || 'N/A',
+                                expiryDate: license.expiryDate || license.endDate || 'N/A',
+                                vendor: license.vendor || license.supplier || 'N/A',
+                                cost: parseFloat(license.cost || license.price || 0),
+                                renewalDate: license.renewalDate || 'N/A',
+                                users: license.users || license.seats || 1,
+                                notes: license.notes || ''
+                            });
+                            
+                            // Highlight expired licenses
+                            if (license.expiryDate) {
+                                const expiry = new Date(license.expiryDate);
+                                const today = new Date();
+                                if (expiry < today) {
+                                    row.fill = {
+                                        type: 'pattern',
+                                        pattern: 'solid',
+                                        fgColor: { argb: 'FFFEE2E2' }
+                                    };
+                                } else if ((expiry - today) / (1000 * 60 * 60 * 24) < 30) {
+                                    row.fill = {
+                                        type: 'pattern',
+                                        pattern: 'solid',
+                                        fgColor: { argb: 'FFFEF3C7' }
+                                    };
+                                }
+                            }
+                            
+                            licenseRowIndex++;
+                        });
+                    } else {
+                        // Add placeholder if no licenses
+                        licenseSheet.addRow({
+                            assetTag: asset.assetTag || 'N/A',
+                            softwareName: 'No software licenses assigned',
+                            licenseType: 'N/A',
+                            licenseKey: 'N/A',
+                            version: 'N/A',
+                            purchaseDate: 'N/A',
+                            expiryDate: 'N/A',
+                            vendor: 'N/A',
+                            cost: 0,
+                            renewalDate: 'N/A',
+                            users: 0,
+                            notes: ''
+                        });
+                        licenseRowIndex++;
+                    }
+                    
+                    // Update progress
+                    if (assetIndex % 5 === 0) {
+                        updateProgress(75 + Math.floor((assetIndex / selectedUser.assets.length) * 10), 
+                                     `Processing licenses for asset ${assetIndex + 1}...`);
+                    }
+                });
+                
+                // ==================== ADDITIONAL INFORMATION SHEET ====================
+                await updateProgress(85, 'Creating Additional Information sheet...');
+                
+                const additionalSheet = workbook.addWorksheet('Additional Information');
+                
+                // Additional info header
+                additionalSheet.mergeCells('A1:F1');
+                additionalSheet.getCell('A1').value = 'ADDITIONAL ASSET INFORMATION';
+                additionalSheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+                additionalSheet.getCell('A1').fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF8B5CF6' }
+                };
+                additionalSheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Additional info columns
+                additionalSheet.columns = [
+                    { header: 'Asset Tag', key: 'assetTag', width: 15 },
+                    { header: 'Maintenance History', key: 'maintenanceHistory', width: 30 },
+                    { header: 'Issues/Problems', key: 'issues', width: 30 },
+                    { header: 'Upgrades', key: 'upgrades', width: 30 },
+                    { header: 'Accessories', key: 'accessories', width: 30 },
+                    { header: 'Disposal Plan', key: 'disposalPlan', width: 20 },
+                    { header: 'Environmental Impact', key: 'environmental', width: 25 },
+                    { header: 'Data Security', key: 'dataSecurity', width: 25 },
+                    { header: 'Backup Information', key: 'backupInfo', width: 25 },
+                    { header: 'User Manual', key: 'userManual', width: 15 },
+                    { header: 'Training Provided', key: 'training', width: 15 },
+                    { header: 'Support Contact', key: 'supportContact', width: 25 }
+                ];
+                
+                // Style additional info header
+                const additionalHeader = additionalSheet.getRow(3);
+                additionalHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                additionalHeader.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1E3A8A' }
+                };
+                additionalHeader.alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Add additional info data
+                selectedUser.assets.forEach((asset, index) => {
+                    const additional = asset.additionalInfo || {};
+                    const row = additionalSheet.addRow({
+                        assetTag: asset.assetTag || 'N/A',
+                        maintenanceHistory: additional.maintenanceHistory || asset.maintenanceNotes || 'Regular maintenance',
+                        issues: additional.issues || asset.problems || 'No known issues',
+                        upgrades: additional.upgrades || asset.upgradeHistory || 'No upgrades',
+                        accessories: additional.accessories || asset.accessories || 'Standard accessories',
+                        disposalPlan: additional.disposalPlan || 'IT Department disposal',
+                        environmental: additional.environmental || 'Standard compliance',
+                        dataSecurity: additional.dataSecurity || asset.securityInfo || 'Standard security measures',
+                        backupInfo: additional.backupInfo || 'Regular backups',
+                        userManual: additional.userManual || 'Available',
+                        training: additional.training || 'Basic training provided',
+                        supportContact: additional.supportContact || 'IT Help Desk: ext. 1234'
+                    });
+                    
+                    // Alternate row colors
+                    if (index % 2 === 0) {
+                        row.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFF3F4F6' }
+                        };
+                    }
+                    
+                    // Update progress
+                    if (index % 5 === 0) {
+                        updateProgress(85 + Math.floor((index / selectedUser.assets.length) * 10), 
+                                     `Adding additional info for asset ${index + 1}...`);
+                    }
+                });
+                
+                // ==================== SUMMARY SHEET ====================
+                await updateProgress(95, 'Creating Summary sheet...');
+                
+                const summarySheet = workbook.addWorksheet('Report Summary');
+                
+                // Summary header
+                summarySheet.mergeCells('A1:E1');
+                summarySheet.getCell('A1').value = 'ASSET REPORT SUMMARY';
+                summarySheet.getCell('A1').font = { bold: true, size: 18, color: { argb: 'FFFFFFFF' } };
+                summarySheet.getCell('A1').fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1E3A8A' }
+                };
+                summarySheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // User summary
+                summarySheet.addRow([]);
+                summarySheet.addRow(['USER SUMMARY']);
+                summarySheet.getCell('A3').font = { bold: true, size: 14 };
+                
+                summarySheet.addRow(['User Name:', selectedUser.name]);
+                summarySheet.addRow(['Department:', selectedUser.department]);
+                summarySheet.addRow(['Report Date:', new Date().toLocaleString()]);
+                summarySheet.addRow(['Report ID:', `CTM-${selectedUser.name.substring(0, 3).toUpperCase()}-${Date.now().toString().substr(-6)}`]);
+                
+                // Asset summary
+                summarySheet.addRow([]);
+                summarySheet.addRow(['ASSET SUMMARY']);
+                summarySheet.getCell('A9').font = { bold: true, size: 14 };
+                
+                summarySheet.addRow(['Total Assets:', totalAssets]);
+                summarySheet.addRow(['Active Assets:', activeAssets]);
+                summarySheet.addRow(['Total Value:', `LKR ${totalValue.toLocaleString()}`]);
+                summarySheet.addRow(['Asset Types:', assetTypes]);
+                
+                // Financial summary
+                summarySheet.addRow([]);
+                summarySheet.addRow(['FINANCIAL SUMMARY']);
+                summarySheet.getCell('A15').font = { bold: true, size: 14 };
+                
+                const avgValue = totalValue / totalAssets;
+                const depreciation = totalValue * 0.15; // Assuming 15% depreciation
+                const netValue = totalValue - depreciation;
+                
+                summarySheet.addRow(['Total Purchase Value:', `LKR ${totalValue.toLocaleString()}`]);
+                summarySheet.addRow(['Average Asset Value:', `LKR ${avgValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
+                summarySheet.addRow(['Annual Depreciation (15%):', `LKR ${depreciation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
+                summarySheet.addRow(['Current Net Value:', `LKR ${netValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
+                
+                // Recommendations
+                summarySheet.addRow([]);
+                summarySheet.addRow(['RECOMMENDATIONS']);
+                summarySheet.getCell('A21').font = { bold: true, size: 14 };
+                
+                const recommendations = [
+                    '1. Regular maintenance scheduled for all active assets',
+                    '2. Consider upgrading assets older than 3 years',
+                    '3. Review software licenses for renewal',
+                    '4. Update asset insurance coverage',
+                    '5. Plan for disposal of retired assets',
+                    '6. Conduct user training for new equipment',
+                    '7. Review security protocols for sensitive data'
+                ];
+                
+                recommendations.forEach((rec, index) => {
+                    summarySheet.addRow([rec]);
+                });
+                
+                // Footer
+                summarySheet.addRow([]);
+                summarySheet.addRow(['Generated by: CTM IT Asset Management System']);
+                summarySheet.addRow(['Contact: IT Department | Email: it@ctm.com | Phone: Ext. 1234']);
+                summarySheet.addRow(['Confidential - For Internal Use Only']);
+                
+                // Auto-size summary columns
+                summarySheet.columns = [
+                    { width: 40 },
+                    { width: 30 },
+                    { width: 30 },
+                    { width: 30 },
+                    { width: 30 }
+                ];
+                
+                // Style summary data
+                for (let i = 3; i <= summarySheet.rowCount; i++) {
+                    if (i === 3 || i === 9 || i === 15 || i === 21) {
+                        summarySheet.getRow(i).font = { bold: true, size: 14 };
+                        summarySheet.getRow(i).fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFF3F4F6' }
+                        };
+                    }
+                }
+                
+                // Update progress
+                await updateProgress(98, 'Finalizing Excel file...');
+                
+                // Generate Excel file
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                
+                // Create filename
+                const fileName = `CTM_Asset_Report_${selectedUser.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                
+                // Save file
+                saveAs(blob, fileName);
+                
+                // Hide progress
+                hideProgress();
+                
+                showToast(`Complete Excel report generated for ${selectedUser.name}`, 'success');
+                
+            } catch (error) {
+                console.error('Excel export error:', error);
+                hideProgress();
+                showToast('Error exporting Excel report', 'error');
+            }
+        }
+
+        async function exportAllUsersToExcel() {
+            if (allUsers.length === 0) {
+                showToast('No users found to export', 'error');
+                return;
+            }
+
+            await showProgress('Generating Excel report for all users...');
+            
+            try {
+                // Create a new workbook
+                const workbook = new ExcelJS.Workbook();
+                workbook.creator = 'CTM IT Asset Management System';
+                workbook.lastModifiedBy = 'CTM IT Department';
+                workbook.created = new Date();
+                workbook.modified = new Date();
+                
+                // Update progress
+                await updateProgress(5, 'Creating workbook...');
+                
+                // Create a summary worksheet
+                const summaryWorksheet = workbook.addWorksheet('Summary');
+                
+                // Add summary data
+                summaryWorksheet.columns = [
+                    { header: 'User Name', key: 'userName', width: 30 },
+                    { header: 'Department', key: 'department', width: 25 },
+                    { header: 'Total Assets', key: 'totalAssets', width: 15 },
+                    { header: 'Active Assets', key: 'activeAssets', width: 15 },
+                    { header: 'Total Value', key: 'totalValue', width: 20 },
+                    { header: 'Asset Types', key: 'assetTypes', width: 15 }
+                ];
+                
+                // Update progress
+                await updateProgress(10, 'Creating summary sheet...');
+                
+                // Style summary header
+                const summaryHeaderRow = summaryWorksheet.getRow(1);
+                summaryHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                summaryHeaderRow.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1E3A8A' }
+                };
+                summaryHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+                
+                // Calculate and add user summaries
+                let totalAllAssets = 0;
+                let totalAllValue = 0;
+                
+                for (let i = 0; i < allUsers.length; i++) {
+                    const user = allUsers[i];
+                    
+                    const totalAssets = user.assets.length;
+                    const activeAssets = user.assets.filter(a => 
+                        a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+                    ).length;
+                    const totalValue = user.assets.reduce((sum, asset) => {
+                        const price = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                        return sum + price;
+                    }, 0);
+                    const assetTypes = [...new Set(user.assets.map(a => a.assetType || a.type || 'Unknown'))].length;
+                    
+                    summaryWorksheet.addRow({
+                        userName: user.name,
+                        department: user.department,
+                        totalAssets: totalAssets,
+                        activeAssets: activeAssets,
+                        totalValue: totalValue,
+                        assetTypes: assetTypes
+                    });
+                    
+                    totalAllAssets += totalAssets;
+                    totalAllValue += totalValue;
+                    
+                    // Update progress
+                    const progress = 10 + Math.floor((i / allUsers.length) * 30);
+                    await updateProgress(progress, `Processing user ${i + 1} of ${allUsers.length}...`);
+                }
+                
+                // Add totals row
+                const totalRow = summaryWorksheet.addRow({
+                    userName: 'TOTAL',
+                    department: '',
+                    totalAssets: totalAllAssets,
+                    activeAssets: '',
+                    totalValue: totalAllValue,
+                    assetTypes: ''
+                });
+                
+                totalRow.font = { bold: true };
+                totalRow.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFD1FAE5' }
+                };
+                
+                // Create individual worksheets for each user
+                for (let i = 0; i < allUsers.length; i++) {
+                    const user = allUsers[i];
+                    const safeSheetName = user.name.replace(/[\\/*?:[\]]/g, '').substring(0, 31);
+                    const worksheet = workbook.addWorksheet(safeSheetName);
+                    
+                    // Update progress
+                    const progress = 40 + Math.floor((i / allUsers.length) * 50);
+                    await updateProgress(progress, `Creating sheet for ${user.name}...`);
+                    
+                    // Define columns for user's assets
+                    worksheet.columns = [
+                        { header: 'Asset Tag', key: 'assetTag', width: 20 },
+                        { header: 'Asset Type', key: 'assetType', width: 20 },
+                        { header: 'Brand/Model', key: 'brandModel', width: 25 },
+                        { header: 'Serial Number', key: 'serialNumber', width: 25 },
+                        { header: 'Status', key: 'status', width: 15 },
+                        { header: 'Condition', key: 'condition', width: 15 },
+                        { header: 'Location', key: 'location', width: 20 },
+                        { header: 'Purchase Date', key: 'purchaseDate', width: 15 },
+                        { header: 'Purchase Price', key: 'purchasePrice', width: 15 },
+                        { header: 'Warranty Until', key: 'warrantyUntil', width: 15 },
+                        { header: 'Assigned Date', key: 'assignedDate', width: 15 },
+                        { header: 'Notes', key: 'notes', width: 30 },
+                        { header: 'Asset ID', key: 'assetId', width: 20 }
+                    ];
+                    
+                    // Style header
+                    const headerRow = worksheet.getRow(1);
+                    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    headerRow.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FF10B981' } // Green
+                    };
+                    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+                    
+                    // Add user info header
+                    worksheet.mergeCells('A1:M1');
+                    worksheet.getCell('A1').value = `${user.name} - ${user.department}`;
+                    worksheet.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+                    worksheet.getCell('A1').fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FF1E3A8A' }
+                    };
+                    worksheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
+                    
+                    // Shift data down by 1 row
+                    worksheet.insertRow(2, ['Asset Tag', 'Asset Type', 'Brand/Model', 'Serial Number', 'Status', 
+                                           'Condition', 'Location', 'Purchase Date', 'Purchase Price', 
+                                           'Warranty Until', 'Assigned Date', 'Notes', 'Asset ID']);
+                    
+                    // Style the actual header row
+                    const actualHeaderRow = worksheet.getRow(2);
+                    actualHeaderRow.font = { bold: true };
+                    actualHeaderRow.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFF3F4F6' }
+                    };
+                    
+                    // Add asset data
+                    user.assets.forEach((asset, assetIndex) => {
+                        const row = worksheet.addRow({
+                            assetTag: asset.assetTag || 'N/A',
+                            assetType: asset.assetType || asset.type || 'N/A',
+                            brandModel: asset.brandModel || asset.model || 'N/A',
+                            serialNumber: asset.serialNumber || 'N/A',
+                            status: asset.status || 'Active',
+                            condition: asset.condition || 'Good',
+                            location: asset.location || 'N/A',
+                            purchaseDate: asset.purchaseDate || 'N/A',
+                            purchasePrice: parseFloat(asset.purchasePrice || asset.price || asset.value || 0),
+                            warrantyUntil: asset.warrantyUntil || 'N/A',
+                            assignedDate: asset.assignedDate || 'N/A',
+                            notes: asset.notes || '',
+                            assetId: asset.id || `ASSET-${assetIndex + 1}`
+                        });
+                        
+                        // Apply formatting based on status
+                        const status = asset.status || 'Active';
+                        if (status === 'Active' || status === 'In Use') {
+                            row.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFD1FAE5' }
+                            };
+                        } else if (status === 'Under Repair') {
+                            row.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFFEE2E2' }
+                            };
+                        } else if (status === 'In Storage') {
+                            row.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFFEF3C7' }
+                            };
+                        } else if (status === 'Retired') {
+                            row.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFF3F4F6' }
+                            };
+                        }
+                    });
+                    
+                    // Add summary at the end of each user's sheet
+                    const totalAssets = user.assets.length;
+                    const activeAssets = user.assets.filter(a => 
+                        a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+                    ).length;
+                    const totalValue = user.assets.reduce((sum, asset) => {
+                        const price = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                        return sum + price;
+                    }, 0);
+                    
+                    const summaryStartRow = worksheet.rowCount + 2;
+                    worksheet.addRow(['SUMMARY:']);
+                    worksheet.addRow(['Total Assets:', totalAssets]);
+                    worksheet.addRow(['Active Assets:', activeAssets]);
+                    worksheet.addRow(['Total Value:', `LKR ${totalValue.toLocaleString()}`]);
+                    worksheet.addRow(['Report Generated:', new Date().toLocaleString()]);
+                    
+                    // Style summary
+                    for (let j = 0; j < 5; j++) {
+                        const summaryRow = worksheet.getRow(summaryStartRow + j);
+                        summaryRow.getCell(1).font = { bold: j === 0 ? true : false };
+                    }
+                }
+                
+                // Update progress
+                await updateProgress(95, 'Finalizing Excel file...');
+                
+                // Generate Excel file
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                
+                // Create filename
+                const fileName = `CTM_All_Users_Assets_${new Date().toISOString().split('T')[0]}.xlsx`;
+                
+                // Save file
+                saveAs(blob, fileName);
+                
+                // Hide progress
+                hideProgress();
+                
+                showToast(`Excel report exported for all ${allUsers.length} users`, 'success');
+                
+            } catch (error) {
+                console.error('Excel export error:', error);
+                hideProgress();
+                showToast('Error exporting Excel report', 'error');
+            }
+        }
+
+        // ==============================================
+        // PROGRESS BAR FUNCTIONS
+        // ==============================================
+        async function showProgress(message) {
+            document.getElementById('progressText').textContent = message;
+            document.getElementById('excelProgress').style.display = 'block';
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressDetails').textContent = '';
+        }
+
+        async function updateProgress(percent, message) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = message;
+            
+            // Add details if available
+            if (message.includes('Processing') || message.includes('Creating')) {
+                document.getElementById('progressDetails').textContent = message;
+            }
+            
+            // Small delay to allow UI to update
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        function hideProgress() {
+            document.getElementById('excelProgress').style.display = 'none';
+        }
+
+        // ==============================================
+        // STATISTICS CALCULATION FUNCTIONS
+        // ==============================================
+        function calculateUserAssetStats(user) {
+            const assets = user.assets;
+            const totalAssets = assets.length;
+            
+            // Calculate active assets
+            const activeAssets = assets.filter(a => 
+                a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+            ).length;
+            
+            // Calculate total value
+            const totalValue = assets.reduce((sum, asset) => {
+                const price = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                return sum + price;
+            }, 0);
+            
+            // Calculate asset types
+            const assetTypes = [...new Set(assets.map(a => a.assetType || a.type || 'Unknown'))].length;
+            
+            // Calculate type breakdown
+            const typeBreakdown = {};
+            assets.forEach(asset => {
+                const type = asset.assetType || asset.type || 'Unknown';
+                typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
+            });
+            
+            // Calculate status breakdown
+            const statusBreakdown = {};
+            assets.forEach(asset => {
+                const status = asset.status || asset.condition || 'Active';
+                statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
+            });
+            
+            // Calculate total value by type
+            const valueByType = {};
+            assets.forEach(asset => {
+                const type = asset.assetType || asset.type || 'Unknown';
+                const value = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                valueByType[type] = (valueByType[type] || 0) + value;
+            });
+            
+            return {
+                totalAssets,
+                activeAssets,
+                totalValue,
+                assetTypes,
+                typeBreakdown,
+                statusBreakdown,
+                valueByType
+            };
+        }
+
+        // ==============================================
+        // MODERN PDF REPORT GENERATION FUNCTIONS
+        // ==============================================
+        async function generateModernUserAssetReport(userName = null) {
+            // Use provided user or selected user
+            let user = userName ? usersDB[userName] : selectedUser;
+            
+            if (!user) {
+                showToast('Please select a user first', 'error');
+                return;
+            }
+
+            showToast(`Generating modern asset report for ${user.name}...`, 'info');
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const margin = 20;
+                let yPosition = margin;
+                
+                // ==================== COVER PAGE ====================
+                // Modern gradient background
+                pdf.setFillColor(30, 58, 138); // Dark blue
+                pdf.rect(0, 0, pageWidth, 297, 'F');
+                
+                // Light blue gradient overlay
+                pdf.setGradient(0, 0, pageWidth, 100, [30, 58, 138], [59, 130, 246]);
+                pdf.rect(0, 0, pageWidth, 100, 'F');
+                
+                // Company Logo/Title
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(28);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('CTM IT DEPARTMENT', pageWidth / 2, 40, { align: 'center' });
+                
+                pdf.setFontSize(18);
+                pdf.text('Asset Management System', pageWidth / 2, 50, { align: 'center' });
+                
+                // Report Title
+                pdf.setFontSize(32);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('ASSET REPORT', pageWidth / 2, 80, { align: 'center' });
+                
+                // User Information Box
+                pdf.setFillColor(255, 255, 255, 0.9);
+                pdf.roundedRect(margin, 100, pageWidth - 2 * margin, 60, 5, 5, 'F');
+                
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(24);
+                pdf.text(user.name, margin + 10, 120);
+                
+                pdf.setTextColor(100, 100, 100);
+                pdf.setFontSize(14);
+                pdf.text(user.department, margin + 10, 135);
+                
+                // Report Metadata
+                const now = new Date();
+                const reportId = `CTM-${user.name.substring(0, 3).toUpperCase()}-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
+                
+                pdf.setFontSize(11);
+                pdf.text(`Report ID: ${reportId}`, margin + 10, 150);
+                pdf.text(`Generated: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth - margin - 10, 150, { align: 'right' });
+                
+                // Footer on cover
+                pdf.setTextColor(255, 255, 255, 0.7);
+                pdf.setFontSize(10);
+                pdf.text('Confidential - For Internal Use Only', pageWidth / 2, 280, { align: 'center' });
+                
+                // ==================== SUMMARY PAGE ====================
+                pdf.addPage();
+                yPosition = margin;
+                
+                // Page Header
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(20);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Asset Summary', margin, yPosition);
+                yPosition += 15;
+                
+                // Calculate statistics
+                const stats = calculateUserAssetStats(user);
+                
+                // Statistics Cards
+                const cardWidth = (pageWidth - 2 * margin - 20) / 4;
+                const cardHeight = 40;
+                
+                // Define card colors
+                const cardColors = [
+                    [30, 58, 138],   // Blue
+                    [16, 185, 129],  // Green
+                    [249, 115, 22],  // Orange
+                    [139, 92, 246]   // Purple
+                ];
+                
+                // Card 1: Total Assets
+                pdf.setFillColor(cardColors[0][0], cardColors[0][1], cardColors[0][2]);
+                pdf.roundedRect(margin, yPosition, cardWidth, cardHeight, 5, 5, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(28);
+                pdf.text(stats.totalAssets.toString(), margin + cardWidth / 2, yPosition + 20, { align: 'center' });
+                pdf.setFontSize(10);
+                pdf.text('TOTAL ASSETS', margin + cardWidth / 2, yPosition + 30, { align: 'center' });
+                
+                // Card 2: Total Value
+                pdf.setFillColor(cardColors[1][0], cardColors[1][1], cardColors[1][2]);
+                pdf.roundedRect(margin + cardWidth + 5, yPosition, cardWidth, cardHeight, 5, 5, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(16);
+                const valueText = `LKR ${stats.totalValue.toLocaleString()}`;
+                pdf.text(valueText, margin + cardWidth + 5 + cardWidth / 2, yPosition + 20, { align: 'center' });
+                pdf.setFontSize(10);
+                pdf.text('TOTAL VALUE', margin + cardWidth + 5 + cardWidth / 2, yPosition + 30, { align: 'center' });
+                
+                // Card 3: Asset Types
+                pdf.setFillColor(cardColors[2][0], cardColors[2][1], cardColors[2][2]);
+                pdf.roundedRect(margin + (cardWidth + 5) * 2, yPosition, cardWidth, cardHeight, 5, 5, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(28);
+                pdf.text(stats.assetTypes.toString(), margin + (cardWidth + 5) * 2 + cardWidth / 2, yPosition + 20, { align: 'center' });
+                pdf.setFontSize(10);
+                pdf.text('ASSET TYPES', margin + (cardWidth + 5) * 2 + cardWidth / 2, yPosition + 30, { align: 'center' });
+                
+                // Card 4: Active Assets
+                pdf.setFillColor(cardColors[3][0], cardColors[3][1], cardColors[3][2]);
+                pdf.roundedRect(margin + (cardWidth + 5) * 3, yPosition, cardWidth, cardHeight, 5, 5, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(28);
+                pdf.text(stats.activeAssets.toString(), margin + (cardWidth + 5) * 3 + cardWidth / 2, yPosition + 20, { align: 'center' });
+                pdf.setFontSize(10);
+                pdf.text('ACTIVE ASSETS', margin + (cardWidth + 5) * 3 + cardWidth / 2, yPosition + 30, { align: 'center' });
+                
+                yPosition += cardHeight + 20;
+                
+                // Asset Type Breakdown
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(16);
+                pdf.text('Asset Type Breakdown', margin, yPosition);
+                yPosition += 10;
+                
+                // Draw type breakdown
+                const breakdown = stats.typeBreakdown;
+                const types = Object.keys(breakdown);
+                
+                types.forEach((type, index) => {
+                    if (yPosition > 250) {
+                        pdf.addPage();
+                        yPosition = margin;
+                    }
+                    
+                    const count = breakdown[type];
+                    const percentage = ((count / stats.totalAssets) * 100).toFixed(1);
+                    
+                    // Bar background
+                    pdf.setFillColor(240, 240, 240);
+                    pdf.rect(margin, yPosition, pageWidth - 2 * margin, 12, 'F');
+                    
+                    // Bar fill
+                    const barWidth = (pageWidth - 2 * margin - 100) * (count / stats.totalAssets);
+                    pdf.setFillColor(cardColors[index % cardColors.length][0], cardColors[index % cardColors.length][1], cardColors[index % cardColors.length][2]);
+                    pdf.rect(margin, yPosition, barWidth, 12, 'F');
+                    
+                    // Text labels
+                    pdf.setTextColor(255, 255, 255);
+                    pdf.setFontSize(10);
+                    pdf.text(type, margin + 5, yPosition + 8);
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text(`${count} (${percentage}%)`, pageWidth - margin - 5, yPosition + 8, { align: 'right' });
+                    
+                    yPosition += 15;
+                });
+                
+                yPosition += 10;
+                
+                // Status Breakdown
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(16);
+                pdf.text('Asset Status Overview', margin, yPosition);
+                yPosition += 10;
+                
+                // Draw status breakdown
+                const statuses = stats.statusBreakdown;
+                const statusColors = {
+                    'Active': [16, 185, 129],
+                    'In Use': [59, 130, 246],
+                    'In Storage': [249, 115, 22],
+                    'Under Repair': [239, 68, 68],
+                    'Retired': [107, 114, 128]
+                };
+                
+                Object.entries(statuses).forEach(([status, count]) => {
+                    if (yPosition > 250) {
+                        pdf.addPage();
+                        yPosition = margin;
+                    }
+                    
+                    const percentage = ((count / stats.totalAssets) * 100).toFixed(1);
+                    const color = statusColors[status] || [100, 100, 100];
+                    
+                    // Status indicator
+                    pdf.setFillColor(color[0], color[1], color[2]);
+                    pdf.circle(margin + 5, yPosition + 5, 4, 'F');
+                    
+                    // Status text
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(10);
+                    pdf.text(status, margin + 15, yPosition + 8);
+                    pdf.text(`${count} assets (${percentage}%)`, pageWidth - margin - 5, yPosition + 8, { align: 'right' });
+                    
+                    yPosition += 12;
+                });
+                
+                // ==================== DETAILED ASSETS PAGE ====================
+                pdf.addPage();
+                yPosition = margin;
+                
+                // Page Header
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(20);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Detailed Asset List', margin, yPosition);
+                yPosition += 10;
+                
+                pdf.setFontSize(11);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text(`Assets assigned to: ${user.name}`, margin, yPosition);
+                yPosition += 15;
+                
+                // Table Header
+                pdf.setFillColor(30, 58, 138);
+                pdf.rect(margin, yPosition, pageWidth - 2 * margin, 10, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'bold');
+                
+                const colWidths = [25, 40, 40, 40, 25, 25];
+                const headers = ['Tag', 'Type', 'Model', 'Serial', 'Status', 'Value'];
+                
+                let xPos = margin + 5;
+                headers.forEach((header, index) => {
+                    pdf.text(header, xPos, yPosition + 7);
+                    xPos += colWidths[index];
+                });
+                
+                yPosition += 12;
+                
+                // Table Rows
+                pdf.setFont('helvetica', 'normal');
+                user.assets.forEach((asset, index) => {
+                    if (yPosition > 250) {
+                        pdf.addPage();
+                        yPosition = margin;
+                        
+                        // Draw header again on new page
+                        pdf.setFillColor(30, 58, 138);
+                        pdf.rect(margin, yPosition, pageWidth - 2 * margin, 10, 'F');
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.setFontSize(10);
+                        pdf.setFont('helvetica', 'bold');
+                        
+                        xPos = margin + 5;
+                        headers.forEach((header, idx) => {
+                            pdf.text(header, xPos, yPosition + 7);
+                            xPos += colWidths[idx];
+                        });
+                        
+                        yPosition += 12;
+                    }
+                    
+                    // Alternate row colors
+                    if (index % 2 === 0) {
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(margin, yPosition - 3, pageWidth - 2 * margin, 10, 'F');
+                    }
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(9);
+                    
+                    // Asset data
+                    const assetTag = asset.assetTag || 'N/A';
+                    const assetType = asset.assetType || asset.type || 'N/A';
+                    const model = (asset.brandModel || asset.model || 'N/A').substring(0, 20);
+                    const serial = (asset.serialNumber || 'N/A').substring(0, 15);
+                    const status = asset.status || asset.condition || 'Active';
+                    const value = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                    
+                    xPos = margin + 5;
+                    pdf.text(assetTag, xPos, yPosition);
+                    xPos += colWidths[0];
+                    pdf.text(assetType, xPos, yPosition);
+                    xPos += colWidths[1];
+                    pdf.text(model, xPos, yPosition);
+                    xPos += colWidths[2];
+                    pdf.text(serial, xPos, yPosition);
+                    xPos += colWidths[3];
+                    
+                    // Status with color
+                    const statusColor = statusColors[status] || [100, 100, 100];
+                    pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+                    pdf.text(status, xPos, yPosition);
+                    xPos += colWidths[4];
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.text(`LKR ${value.toLocaleString()}`, xPos, yPosition);
+                    
+                    yPosition += 8;
+                });
+                
+                // ==================== ASSET DETAILS PAGE ====================
+                pdf.addPage();
+                yPosition = margin;
+                
+                // Page Header
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(20);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Individual Asset Details', margin, yPosition);
+                yPosition += 15;
+                
+                // Detailed asset information
+                user.assets.forEach((asset, index) => {
+                    if (yPosition > 220) {
+                        pdf.addPage();
+                        yPosition = margin;
+                    }
+                    
+                    // Asset header with background
+                    pdf.setFillColor(240, 240, 240);
+                    pdf.rect(margin, yPosition, pageWidth - 2 * margin, 15, 'F');
+                    
+                    pdf.setTextColor(30, 58, 138);
+                    pdf.setFontSize(12);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text(`Asset ${index + 1}: ${asset.assetTag || 'No Tag'}`, margin + 5, yPosition + 10);
+                    
+                    yPosition += 20;
+                    
+                    // Asset details in two columns
+                    const details = [
+                        ['Type:', asset.assetType || asset.type || 'N/A'],
+                        ['Model:', asset.brandModel || asset.model || 'N/A'],
+                        ['Serial:', asset.serialNumber || 'N/A'],
+                        ['Status:', asset.status || asset.condition || 'Active'],
+                        ['Purchase Date:', asset.purchaseDate || 'N/A'],
+                        ['Purchase Price:', `LKR ${parseFloat(asset.purchasePrice || asset.price || asset.value || 0).toLocaleString()}`],
+                        ['Location:', asset.location || 'N/A'],
+                        ['Condition:', asset.condition || 'Good'],
+                        ['Warranty Until:', asset.warrantyUntil || 'N/A'],
+                        ['Assigned Date:', asset.assignedDate || 'N/A']
+                    ];
+                    
+                    pdf.setFontSize(10);
+                    pdf.setFont('helvetica', 'normal');
+                    
+                    const col1X = margin + 5;
+                    const col2X = margin + (pageWidth - 2 * margin) / 2 + 5;
+                    let currentCol = 1;
+                    
+                    details.forEach(([label, value], detailIndex) => {
+                        if (currentCol === 1 && yPosition > 250) {
+                            yPosition = margin + 20;
+                            currentCol = 2;
+                        }
+                        
+                        const xPos = currentCol === 1 ? col1X : col2X;
+                        
+                        pdf.setTextColor(100, 100, 100);
+                        pdf.text(label, xPos, yPosition);
+                        pdf.setTextColor(0, 0, 0);
+                        pdf.text(value, xPos + 40, yPosition);
+                        
+                        if (currentCol === 1) {
+                            yPosition += 7;
+                        } else {
+                            if (detailIndex % 2 === 1) {
+                                yPosition += 7;
+                            }
+                        }
+                    });
+                    
+                    yPosition += 15;
+                    
+                    // Separator line
+                    pdf.setDrawColor(200, 200, 200);
+                    pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+                    yPosition += 10;
+                });
+                
+                // ==================== FOOTER PAGE ====================
+                pdf.addPage();
+                yPosition = margin;
+                
+                // Thank you message
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(24);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Report Complete', pageWidth / 2, 100, { align: 'center' });
+                
+                pdf.setTextColor(100, 100, 100);
+                pdf.setFontSize(14);
+                pdf.text('Asset Management Report', pageWidth / 2, 120, { align: 'center' });
+                
+                // Summary box
+                pdf.setFillColor(240, 240, 240);
+                pdf.roundedRect(margin, 140, pageWidth - 2 * margin, 80, 5, 5, 'F');
+                
+                pdf.setTextColor(30, 58, 138);
+                pdf.setFontSize(16);
+                pdf.text('Final Summary', margin + 10, 155);
+                
+                pdf.setFontSize(11);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text(`User: ${user.name}`, margin + 10, 170);
+                pdf.text(`Department: ${user.department}`, margin + 10, 180);
+                pdf.text(`Total Assets: ${stats.totalAssets}`, margin + 10, 190);
+                pdf.text(`Total Value: LKR ${stats.totalValue.toLocaleString()}`, margin + 10, 200);
+                
+                pdf.text(`Report ID: ${reportId}`, pageWidth - margin - 10, 170, { align: 'right' });
+                pdf.text(`Generated: ${now.toLocaleDateString()}`, pageWidth - margin - 10, 180, { align: 'right' });
+                pdf.text(`Pages: ${pdf.internal.getNumberOfPages()}`, pageWidth - margin - 10, 190, { align: 'right' });
+                
+                // Footer
+                pdf.setTextColor(100, 100, 100);
+                pdf.setFontSize(9);
+                pdf.text('CTM IT Department - Asset Management System', pageWidth / 2, 280, { align: 'center' });
+                pdf.text('This report is generated automatically and contains confidential information', pageWidth / 2, 285, { align: 'center' });
+                pdf.text('© 2024 All Rights Reserved', pageWidth / 2, 290, { align: 'center' });
+                
+                // Save the PDF
+                const fileName = `CTM_Asset_Report_${user.name.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`;
+                pdf.save(fileName);
+                
+                showToast(`Modern PDF report generated for ${user.name}`, 'success');
+                
+            } catch (error) {
+                console.error('Modern PDF generation error:', error);
+                showToast('Error generating modern PDF report', 'error');
+            }
+        }
+
+        // ==============================================
+        // ORIGINAL PDF REPORT GENERATION FUNCTIONS
+        // ==============================================
+        async function generatePDFReport() {
+            if (!selectedUser) {
+                showToast('Please select a user first', 'error');
+                return;
+            }
+
+            showToast('Generating PDF report...', 'info');
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                
+                // Add header
+                pdf.setFillColor(30, 58, 138);
+                pdf.rect(0, 0, pageWidth, 30, 'F');
+                
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(20);
+                pdf.text('CTM IT DEPARTMENT', pageWidth / 2, 15, { align: 'center' });
+                pdf.setFontSize(14);
+                pdf.text('Asset Assignment Report', pageWidth / 2, 22, { align: 'center' });
+                
+                // Add user info
+                pdf.setTextColor(0, 0, 0);
+                pdf.setFontSize(12);
+                pdf.text('User Asset Report', 20, 45);
+                pdf.setFontSize(10);
+                pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 45, { align: 'right' });
+                
+                pdf.setFontSize(16);
+                pdf.text(selectedUser.name, 20, 55);
+                pdf.setFontSize(12);
+                pdf.text(selectedUser.department, 20, 62);
+                
+                // Add report ID
+                const reportId = `CTM-${selectedUser.name.substring(0, 3).toUpperCase()}-${Date.now().toString().substr(-6)}`;
+                pdf.setFontSize(10);
+                pdf.text(`Report ID: ${reportId}`, 20, 70);
+                
+                // Add statistics
+                pdf.setFontSize(14);
+                pdf.text('Asset Summary', 20, 85);
+                
+                const totalAssets = currentReportAssets.length;
+                const activeAssets = currentReportAssets.filter(a => 
+                    a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+                ).length;
+                const totalValue = currentReportAssets.reduce((sum, asset) => 
+                    sum + (parseFloat(asset.purchasePrice || asset.price || asset.value || 0)), 0);
+                const assetTypes = [...new Set(currentReportAssets.map(a => a.assetType || a.type || 'Unknown'))].length;
+                
+                pdf.setFontSize(11);
+                pdf.text(`Total Assets: ${totalAssets}`, 20, 95);
+                pdf.text(`Active Assets: ${activeAssets}`, 20, 102);
+                pdf.text(`Total Value: LKR ${totalValue.toLocaleString()}`, 20, 109);
+                pdf.text(`Asset Types: ${assetTypes}`, 20, 116);
+                
+                // Add assets table header
+                pdf.setFontSize(12);
+                pdf.text('Assigned Assets Details', 20, 130);
+                
+                let yPosition = 140;
+                
+                // Add table headers
+                pdf.setFillColor(240, 240, 240);
+                pdf.rect(20, yPosition - 5, pageWidth - 40, 8, 'F');
+                pdf.setFontSize(9);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Asset Tag', 22, yPosition);
+                pdf.text('Type', 60, yPosition);
+                pdf.text('Model', 90, yPosition);
+                pdf.text('Serial', 120, yPosition);
+                pdf.text('Status', 160, yPosition);
+                pdf.text('Value', pageWidth - 30, yPosition, { align: 'right' });
+                
+                yPosition += 10;
+                
+                // Add asset rows
+                pdf.setFontSize(8);
+                currentReportAssets.forEach((asset, index) => {
+                    if (yPosition > 270) {
+                        pdf.addPage();
+                        yPosition = 20;
+                        
+                        // Add table headers on new page
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(20, yPosition - 5, pageWidth - 40, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.text('Asset Tag', 22, yPosition);
+                        pdf.text('Type', 60, yPosition);
+                        pdf.text('Model', 90, yPosition);
+                        pdf.text('Serial', 120, yPosition);
+                        pdf.text('Status', 160, yPosition);
+                        pdf.text('Value', pageWidth - 30, yPosition, { align: 'right' });
+                        yPosition += 10;
+                    }
+                    
+                    const purchasePrice = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                    const assetType = asset.assetType || asset.type || 'N/A';
+                    const model = asset.brandModel || asset.model || 'N/A';
+                    const serial = asset.serialNumber || 'N/A';
+                    const status = asset.status || asset.condition || 'Active';
+                    
+                    pdf.text(asset.assetTag || 'N/A', 22, yPosition);
+                    pdf.text(assetType, 60, yPosition);
+                    pdf.text(model, 90, yPosition);
+                    pdf.text(serial, 120, yPosition);
+                    pdf.text(status, 160, yPosition);
+                    pdf.text(`LKR ${purchasePrice.toLocaleString()}`, pageWidth - 30, yPosition, { align: 'right' });
+                    
+                    yPosition += 7;
+                });
+                
+                // Add footer
+                pdf.setFontSize(8);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text('© 2024 CTM IT Department - Asset Management System', pageWidth / 2, 290, { align: 'center' });
+                
+                // Save the PDF
+                const fileName = `CTM_Asset_Report_${selectedUser.name.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`;
+                pdf.save(fileName);
+                
+                showToast(`PDF report generated for ${selectedUser.name}`, 'success');
+                
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                showToast('Error generating PDF report', 'error');
+            }
+        }
+
+        async function generateCompleteInventoryReport() {
+            if (allAssetsList.length === 0) {
+                showToast('No assets found to generate report', 'error');
+                return;
+            }
+
+            showToast('Generating complete inventory report...', 'info');
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                
+                // Add header
+                pdf.setFillColor(30, 58, 138);
+                pdf.rect(0, 0, pageWidth, 30, 'F');
+                
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(20);
+                pdf.text('CTM IT DEPARTMENT', pageWidth / 2, 15, { align: 'center' });
+                pdf.setFontSize(14);
+                pdf.text('Complete Asset Inventory Report', pageWidth / 2, 22, { align: 'center' });
+                
+                // Add report info
+                pdf.setTextColor(0, 0, 0);
+                pdf.setFontSize(10);
+                pdf.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth - 20, 45, { align: 'right' });
+                pdf.text(`Total Assets: ${allAssetsList.length}`, 20, 45);
+                pdf.text(`Total Users with Assets: ${allUsers.length}`, 20, 52);
+                
+                // Calculate summary statistics
+                const totalValue = allAssetsList.reduce((sum, asset) => 
+                    sum + (parseFloat(asset.purchasePrice || asset.price || asset.value || 0)), 0);
+                const activeAssets = allAssetsList.filter(a => 
+                    a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+                ).length;
+                const assignedAssets = allAssetsList.filter(a => a.assignedTo && a.assignedTo !== 'Not assigned').length;
+                
+                pdf.text(`Total Value: LKR ${totalValue.toLocaleString()}`, 20, 59);
+                pdf.text(`Active Assets: ${activeAssets}`, 20, 66);
+                pdf.text(`Assigned Assets: ${assignedAssets}`, 20, 73);
+                
+                let yPosition = 85;
+                
+                // Add summary section
+                pdf.setFontSize(14);
+                pdf.text('Asset Summary by Type', 20, yPosition);
+                yPosition += 10;
+                
+                // Calculate asset type breakdown
+                const typeBreakdown = {};
+                allAssetsList.forEach(asset => {
+                    const type = asset.assetType || asset.type || 'Unknown';
+                    typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
+                });
+                
+                pdf.setFontSize(10);
+                const sortedTypes = Object.entries(typeBreakdown).sort((a, b) => b[1] - a[1]);
+                
+                sortedTypes.forEach(([type, count]) => {
+                    if (yPosition > 270) {
+                        pdf.addPage();
+                        yPosition = 20;
+                    }
+                    
+                    pdf.text(`${type}: ${count} assets`, 25, yPosition);
+                    yPosition += 6;
+                });
+                
+                yPosition += 10;
+                
+                // Add detailed asset list
+                pdf.addPage();
+                yPosition = 20;
+                
+                pdf.setFontSize(14);
+                pdf.text('Detailed Asset List', 20, yPosition);
+                yPosition += 10;
+                
+                // Table headers
+                pdf.setFillColor(240, 240, 240);
+                pdf.rect(20, yPosition - 5, pageWidth - 40, 8, 'F');
+                pdf.setFontSize(9);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Asset Tag', 22, yPosition);
+                pdf.text('Type', 50, yPosition);
+                pdf.text('Model', 80, yPosition);
+                pdf.text('Assigned To', 110, yPosition);
+                pdf.text('Status', 150, yPosition);
+                pdf.text('Value', pageWidth - 30, yPosition, { align: 'right' });
+                
+                yPosition += 10;
+                
+                // Asset rows
+                pdf.setFontSize(8);
+                allAssetsList.forEach((asset, index) => {
+                    if (yPosition > 270) {
+                        pdf.addPage();
+                        yPosition = 20;
+                        
+                        // Add table headers on new page
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(20, yPosition - 5, pageWidth - 40, 8, 'F');
+                        pdf.setFontSize(9);
+                        pdf.text('Asset Tag', 22, yPosition);
+                        pdf.text('Type', 50, yPosition);
+                        pdf.text('Model', 80, yPosition);
+                        pdf.text('Assigned To', 110, yPosition);
+                        pdf.text('Status', 150, yPosition);
+                        pdf.text('Value', pageWidth - 30, yPosition, { align: 'right' });
+                        yPosition += 10;
+                    }
+                    
+                    const purchasePrice = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                    const assetType = asset.assetType || asset.type || 'N/A';
+                    const model = asset.brandModel || asset.model || 'N/A';
+                    const assignedTo = asset.assignedTo || 'Not assigned';
+                    const status = asset.status || asset.condition || 'Active';
+                    
+                    pdf.text(asset.assetTag || 'N/A', 22, yPosition);
+                    pdf.text(assetType, 50, yPosition);
+                    pdf.text(model, 80, yPosition);
+                    pdf.text(assignedTo, 110, yPosition);
+                    pdf.text(status, 150, yPosition);
+                    pdf.text(`LKR ${purchasePrice.toLocaleString()}`, pageWidth - 30, yPosition, { align: 'right' });
+                    
+                    yPosition += 7;
+                });
+                
+                // Add user summary page
+                pdf.addPage();
+                yPosition = 20;
+                
+                pdf.setFontSize(14);
+                pdf.text('Users with Assigned Assets', 20, yPosition);
+                yPosition += 10;
+                
+                if (allUsers.length > 0) {
+                    // Sort users by number of assets
+                    const sortedUsers = [...allUsers].sort((a, b) => b.assets.length - a.assets.length);
+                    
+                    pdf.setFontSize(10);
+                    sortedUsers.forEach((user, index) => {
+                        if (yPosition > 270) {
+                            pdf.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        const userAssets = user.assets.length;
+                        const userValue = user.assets.reduce((sum, asset) => 
+                            sum + (parseFloat(asset.purchasePrice || asset.price || asset.value || 0)), 0);
+                        
+                        pdf.text(`${index + 1}. ${user.name} (${user.department})`, 25, yPosition);
+                        yPosition += 5;
+                        pdf.text(`   Assets: ${userAssets}, Value: LKR ${userValue.toLocaleString()}`, 25, yPosition);
+                        yPosition += 8;
+                    });
+                } else {
+                    pdf.text('No users with assigned assets', 25, yPosition);
+                }
+                
+                // Add footer
+                pdf.setFontSize(8);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text('© 2024 CTM IT Department - Asset Management System', pageWidth / 2, 290, { align: 'center' });
+                
+                // Save the PDF
+                const fileName = `CTM_Complete_Inventory_Report_${Date.now()}.pdf`;
+                pdf.save(fileName);
+                
+                showToast('Complete inventory report generated successfully', 'success');
+                
+            } catch (error) {
+                console.error('Complete inventory PDF generation error:', error);
+                showToast('Error generating complete inventory report', 'error');
+            }
+        }
+
+        // ==============================================
+        // FILTER FUNCTIONS
+        // ==============================================
+        function filterAssets() {
+            const searchTerm = document.getElementById('searchAsset').value.toLowerCase();
+            const typeFilter = document.getElementById('filterType').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            
+            // Filter users
+            filteredUsers = allUsers.filter(user => {
+                // Search term filter
+                const matchesSearch = searchTerm === '' || 
+                    user.name.toLowerCase().includes(searchTerm) ||
+                    user.department.toLowerCase().includes(searchTerm);
+                
+                // Type filter
+                let matchesType = typeFilter === '';
+                if (!matchesType) {
+                    matchesType = user.assets.some(asset => {
+                        const assetType = asset.assetType || asset.type || '';
+                        return assetType.includes(typeFilter);
+                    });
+                }
+                
+                // Status filter
+                let matchesStatus = statusFilter === '';
+                if (!matchesStatus) {
+                    matchesStatus = user.assets.some(asset => {
+                        const status = asset.status || asset.condition || '';
+                        return status === statusFilter;
+                    });
+                }
+                
+                return matchesSearch && matchesType && matchesStatus;
+            });
+            
+            // Filter assets
+            filteredAssets = allAssetsList.filter(asset => {
+                // Search term filter
+                const matchesSearch = searchTerm === '' || 
+                    (asset.assetTag && asset.assetTag.toLowerCase().includes(searchTerm)) ||
+                    (asset.assignedTo && asset.assignedTo.toLowerCase().includes(searchTerm)) ||
+                    (asset.brandModel && asset.brandModel.toLowerCase().includes(searchTerm)) ||
+                    (asset.location && asset.location.toLowerCase().includes(searchTerm));
+                
+                // Type filter
+                const matchesType = typeFilter === '' || 
+                    (asset.assetType && asset.assetType.includes(typeFilter)) ||
+                    (asset.type && asset.type.includes(typeFilter));
+                
+                // Status filter
+                const matchesStatus = statusFilter === '' || 
+                    (asset.status && asset.status === statusFilter) ||
+                    (asset.condition && asset.condition === statusFilter);
+                
+                return matchesSearch && matchesType && matchesStatus;
+            });
+            
+            updateUsersList();
+            updateUsersCount();
+            updateAssetsListDisplay();
+            updateAssetsCount();
+        }
+
+        function clearFilters() {
+            document.getElementById('searchAsset').value = '';
+            document.getElementById('filterType').value = '';
+            document.getElementById('filterStatus').value = '';
+            filteredUsers = [...allUsers];
+            filteredAssets = [...allAssetsList];
+            updateUsersList();
+            updateUsersCount();
+            updateAssetsListDisplay();
+            updateAssetsCount();
+            showToast('Filters cleared', 'info');
+        }
+
+        // ==============================================
+        // UTILITY FUNCTIONS
+        // ==============================================
+        function printReport() {
+            if (!selectedUser) {
+                showToast('Please select a user first', 'error');
+                return;
+            }
+            
+            window.print();
+            showToast('Report sent to printer', 'info');
+        }
+
+        function emailReport() {
+            if (!selectedUser) {
+                showToast('Please select a user first', 'error');
+                return;
+            }
+            
+            const subject = `CTM IT Asset Report for ${selectedUser.name}`;
+            const body = `Please find attached the asset report for ${selectedUser.name}.\n\nGenerated on: ${new Date().toLocaleString()}`;
+            const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            
+            window.location.href = mailtoLink;
+            showToast('Email client opened with report details', 'info');
+        }
+
+        function closeReport() {
+            document.getElementById('reportPreview').style.display = 'none';
+            document.getElementById('reportActions').style.display = 'none';
+            
+            // Clear selection
+            selectedUser = null;
+            document.querySelectorAll('.user-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // Hide export button
+            document.getElementById('exportSelectedUserBtn').style.display = 'none';
+            
+            showToast('Report preview closed', 'info');
+        }
+
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+                </div>
+                <div style="flex: 1;">
+                    <strong>${message}</strong>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode === toastContainer) {
+                        toastContainer.removeChild(toast);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // ==============================================
+        // INITIALIZATION
+        // ==============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Firebase
+            initializeFirebase();
+            
+            // Load initial data
+            setTimeout(() => {
+                loadAllAssets();
+            }, 1000);
+        });
+        
+        // Make functions available globally
+        window.selectUser = selectUser;
+        window.exportSelectedUserToExcel = exportSelectedUserToExcel;
+        window.exportAllUsersToExcel = exportAllUsersToExcel;
+        window.generatePDFReport = generatePDFReport;
+        window.generateModernUserAssetReport = generateModernUserAssetReport;
+        window.generateCompleteInventoryReport = generateCompleteInventoryReport;
+        window.printReport = printReport;
+        window.emailReport = emailReport;
+        window.closeReport = closeReport;
+        window.loadAllAssets = loadAllAssets;
+        window.clearFilters = clearFilters;
+        window.filterAssets = filterAssets;
+        
+    </script>
+</body>
+</html>

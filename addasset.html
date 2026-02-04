@@ -1,0 +1,3613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CTM IT - Add Asset</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- html2canvas for screenshots -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --success-green: #10b981;
+            --warning-yellow: #fbbf24;
+            --danger-red: #ef4444;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--dark-gray);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Firebase Status Indicator */
+        .firebase-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .firebase-connected {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border: 2px solid #10b981;
+        }
+
+        .firebase-disconnected {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: 2px solid #ef4444;
+        }
+
+        .firebase-syncing {
+            background: rgba(59, 130, 246, 0.95);
+            color: white;
+            border: 2px solid #3b82f6;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            box-shadow: var(--shadow);
+            padding: 0.8rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--primary-blue);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        .department-name {
+            font-size: 0.7rem;
+            color: var(--success-green);
+            font-weight: 600;
+        }
+
+        /* Navigation wrapper and scroll buttons - FIXED */
+        .nav-wrapper {
+            position: relative;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .nav-scroll-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--white);
+            border: 2px solid var(--primary-blue);
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow);
+        }
+
+        .nav-scroll-btn:hover {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .nav-scroll-btn.left {
+            left: 5px;
+        }
+
+        .nav-scroll-btn.right {
+            right: 5px;
+        }
+
+        .nav-scroll-btn.hidden {
+            display: none;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 0.5rem 0.5rem;
+            gap: 0.5rem;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        .mobile-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 0 0 auto;
+            padding: 0.6rem 1rem;
+            background: var(--light-gray);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--medium-gray);
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .nav-tab:hover {
+            background: #e5e7eb;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1rem;
+            max-width: 100%;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Page Content */
+        .page {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Page Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem 1rem;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--dark-gray);
+        }
+
+        .page-subtitle {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--success-green);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        /* Real-time Badge */
+        .realtime-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: var(--success-green);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        /* Form Sections */
+        .form-section {
+            display: none;
+            margin-bottom: 2rem;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin: 1.5rem 0 1rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--light-gray);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Form Grid */
+        .form-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .form-label.required::after {
+            content: " *";
+            color: var(--danger-red);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            background: var(--white);
+            font-family: inherit;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 44px;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-blue);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning-yellow);
+            color: var(--dark-gray);
+        }
+
+        .btn-danger {
+            background: var(--danger-red);
+            color: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .toast {
+            background: var(--white);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            animation: slideInUp 0.3s ease;
+            border-left: 4px solid var(--success-green);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+        }
+
+        .toast-success { border-left-color: var(--success-green); }
+        .toast-error { border-left-color: var(--danger-red); }
+        .toast-warning { border-left-color: var(--warning-yellow); }
+        .toast-info { border-left-color: var(--secondary-blue); }
+
+        .toast-success .toast-icon { color: var(--success-green); }
+        .toast-error .toast-icon { color: var(--danger-red); }
+        .toast-warning .toast-icon { color: var(--warning-yellow); }
+        .toast-info .toast-icon { color: var(--secondary-blue); }
+
+        /* Asset Type Quick Buttons */
+        .asset-type-quick-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .asset-type-btn {
+            padding: 0.5rem;
+            background: var(--light-gray);
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .asset-type-btn:hover {
+            background: var(--secondary-blue);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .asset-type-btn i {
+            font-size: 1.2rem;
+        }
+
+        .asset-type-btn.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+        }
+
+        /* Scrollable Forms */
+        .scrollable-form {
+            max-height: 2000px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .scrollable-form::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollable-form::-webkit-scrollbar-track {
+            background: var(--light-gray);
+            border-radius: 3px;
+        }
+
+        .scrollable-form::-webkit-scrollbar-thumb {
+            background: var(--medium-gray);
+            border-radius: 3px;
+        }
+
+        /* Asset Tag Preview */
+        .asset-tag-preview {
+            background: white;
+            border: 2px solid var(--primary-blue);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .asset-tag-qr {
+            display: inline-block;
+            padding: 10px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .asset-tag-text {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .asset-tag-footer {
+            font-size: 0.8rem;
+            color: var(--primary-blue);
+            font-weight: 600;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* License Software Section Styles */
+        .license-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border: 2px solid #e5e7eb;
+        }
+
+        .license-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .license-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .license-container {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .license-entry {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .license-entry:last-child {
+            margin-bottom: 0;
+        }
+
+        .license-entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .license-entry-title {
+            font-weight: 600;
+            color: var(--dark-gray);
+            font-size: 1rem;
+        }
+
+        .license-entry-number {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+        }
+
+        .remove-license {
+            background: var(--danger-red);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .remove-license:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+
+        .license-form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .license-key-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .key-toggle {
+            background: var(--light-gray);
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .key-toggle:hover {
+            background: #e5e7eb;
+        }
+
+        .key-toggle.active {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .license-key-input {
+            position: relative;
+        }
+
+        .key-visibility {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--medium-gray);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .license-list {
+            margin-top: 1.5rem;
+        }
+
+        .no-licenses {
+            text-align: center;
+            padding: 2rem;
+            color: var(--medium-gray);
+            background: var(--light-gray);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .no-licenses i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--medium-gray);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--white);
+            padding: 1.5rem 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .copyright {
+            color: var(--medium-gray);
+            font-size: 0.8rem;
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .header {
+                padding: 1rem 2rem;
+            }
+
+            .logo {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+
+            .company-name {
+                font-size: 1.4rem;
+            }
+
+            .department-name {
+                font-size: 0.8rem;
+            }
+
+            .mobile-nav {
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .nav-tab {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .nav-scroll-btn {
+                display: none;
+            }
+
+            .main-container {
+                padding: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .form-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: row;
+            }
+
+            .btn {
+                min-width: 120px;
+            }
+
+            .toast-container {
+                right: 20px;
+                left: auto;
+                max-width: 350px;
+            }
+
+            .asset-type-quick-buttons {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+
+            .license-form-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-nav {
+                gap: 2rem;
+            }
+
+            .form-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .asset-type-quick-buttons {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+
+        @media (max-width: 767px) {
+            .asset-type-quick-buttons {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+
+            .license-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-scroll-btn {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase Status Indicator -->
+    <div class="firebase-status firebase-disconnected" id="firebaseStatus">
+        <i class="fas fa-plug"></i>
+        <span>Connecting to Firebase...</span>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="logo-text">
+                <div class="company-name">CTM IT Department</div>
+                <div class="department-name">Firebase Real-time Asset Management</div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <button class="nav-tab" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='scanqr.html'">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='addasset.html'">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Asset</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventory.html'">
+                <i class="fas fa-boxes-stacked"></i>
+                <span>Inventory</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='firebase.html'">
+                <i class="fas fa-database"></i>
+                <span>Firebase</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='fullreport.html'">
+                <i class="fas fa-file-alt"></i>
+                <span>Full Report</span>
+            </button>
+            <button class="nav-tab active" onclick="window.location.href='inventorymap.html'">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Inventory Map</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Add Asset Page -->
+        <div id="add-page" class="page">
+            <div class="page-header">
+                <h1 class="page-title">Register New IT Asset</h1>
+                <p class="page-subtitle">Save directly to Firebase Realtime Database</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </div>
+                        <h2 class="card-title">Asset Information</h2>
+                        <div class="realtime-badge">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>SAVE TO CLOUD</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="asset-type-quick-buttons">
+                    <button class="asset-type-btn" onclick="setDeviceType('Desktop PC')">
+                        <i class="fas fa-desktop"></i>
+                        Desktop PC
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Laptop PC')">
+                        <i class="fas fa-laptop"></i>
+                        Laptop PC
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Server')">
+                        <i class="fas fa-server"></i>
+                        Server
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Printer')">
+                        <i class="fas fa-print"></i>
+                        Printer
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Scanner')">
+                        <i class="fas fa-scanner"></i>
+                        Scanner
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Monitor')">
+                        <i class="fas fa-tv"></i>
+                        Monitor
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('UPS')">
+                        <i class="fas fa-battery-full"></i>
+                        UPS
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Network Switch')">
+                        <i class="fas fa-network-wired"></i>
+                        Network Switch
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Router')">
+                        <i class="fas fa-wifi"></i>
+                        Router
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('CCTV')">
+                        <i class="fas fa-video"></i>
+                        CCTV Camera
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Fingerprint Device')">
+                        <i class="fas fa-fingerprint"></i>
+                        Fingerprint
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Mobile Phone')">
+                        <i class="fas fa-mobile-alt"></i>
+                        Mobile Phone
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('DVR/NVR')">
+                        <i class="fas fa-hdd"></i>
+                        DVR/NVR
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Keyboard')">
+                        <i class="fas fa-keyboard"></i>
+                        Keyboard
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Mouse')">
+                        <i class="fas fa-mouse"></i>
+                        Mouse
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Tablet PC')">
+                        <i class="fas fa-tablet-alt"></i>
+                        Tablet PC
+                    </button>
+                    <button class="asset-type-btn" onclick="setDeviceType('Other IT')">
+                        <i class="fas fa-laptop"></i>
+                        Other IT
+                    </button>
+                </div>
+
+                <div class="scrollable-form">
+                    <form id="assetForm">
+                        <!-- Basic Information Section -->
+                        <div class="form-section active" id="basicSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-info-circle"></i>
+                                Basic Information
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label required">Asset Type</label>
+                                    <select class="form-select" id="assetType" required onchange="showDeviceSpecificFields()">
+                                        <option value="">Select Asset Type</option>
+                                        <option value="Desktop PC">Desktop PC</option>
+                                        <option value="Laptop PC">Laptop PC</option>
+                                        <option value="Server">Server</option>
+                                        <option value="Printer">Printer</option>
+                                        <option value="Scanner">Scanner</option>
+                                        <option value="Monitor">Monitor</option>
+                                        <option value="UPS">UPS</option>
+                                        <option value="Network Switch">Network Switch</option>
+                                        <option value="Router">Router</option>
+                                        <option value="CCTV">CCTV Camera</option>
+                                        <option value="Fingerprint Device">Fingerprint Device</option>
+                                        <option value="Mobile Phone">Mobile Phone</option>
+                                        <option value="DVR/NVR">DVR/NVR</option>
+                                        <option value="Keyboard">Keyboard</option>
+                                        <option value="Mouse">Mouse</option>
+                                        <option value="Tablet PC">Tablet PC</option>
+                                        <option value="Other IT">Other IT Equipment</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Asset Tag Number</label>
+                                    <input type="text" class="form-input" id="assetTag" required 
+                                           placeholder="Enter Asset Tag (e.g., CTM-IT-0001)">
+                                    <small style="color: var(--medium-gray); font-size: 0.8rem;">Enter asset tag manually (e.g., CTM-IT-0001)</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Serial Number</label>
+                                    <input type="text" class="form-input" id="serialNumber" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Brand/Model</label>
+                                    <input type="text" class="form-input" id="brandModel" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Purchase Date</label>
+                                    <input type="date" class="form-input" id="purchaseDate" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Warranty Period</label>
+                                    <select class="form-select" id="warrantyPeriod" required>
+                                        <option value="">Select Warranty</option>
+                                        <option value="1 Year">1 Year</option>
+                                        <option value="2 Years">2 Years</option>
+                                        <option value="3 Years">3 Years</option>
+                                        <option value="5 Years">5 Years</option>
+                                        <option value="No Warranty">No Warranty</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Location</label>
+                                    <input type="text" class="form-input" id="location" required 
+                                           placeholder="e.g., Room 101, 2nd Floor">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Previously Assigned To</label>
+                                    <input type="text" class="form-input" id="previouslyAssignedTo" 
+                                           placeholder="Name of previous user (if any)">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Assigned To</label>
+                                    <input type="text" class="form-input" id="assignedTo" required 
+                                           placeholder="Department or Employee Name">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Department</label>
+                                    <input type="text" class="form-input" id="department" 
+                                           placeholder="e.g., IT, Accounting, HR">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" id="status">
+                                        <option value="Active">Active</option>
+                                        <option value="In Use">In Use</option>
+                                        <option value="In Storage">In Storage</option>
+                                        <option value="Under Repair">Under Repair</option>
+                                        <option value="Retired">Retired</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Desktop PC Specific Fields -->
+                        <div class="form-section" id="desktopSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-desktop"></i>
+                                Desktop PC Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Processor</label>
+                                        <input type="text" class="form-input" id="desktopProcessor" 
+                                               placeholder="e.g., Intel Core i5-10400">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Processor Speed</label>
+                                        <input type="text" class="form-input" id="desktopProcessorSpeed" 
+                                               placeholder="e.g., 2.9 GHz">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Motherboard</label>
+                                        <input type="text" class="form-input" id="desktopMotherboard" 
+                                               placeholder="e.g., ASUS PRIME B460M-A">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">RAM</label>
+                                        <input type="text" class="form-input" id="desktopRAM" 
+                                               placeholder="e.g., 16GB DDR4 3200MHz">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Storage Type</label>
+                                        <select class="form-select" id="desktopStorageType">
+                                            <option value="">Select Type</option>
+                                            <option value="HDD">HDD</option>
+                                            <option value="SSD">SSD</option>
+                                            <option value="NVMe">NVMe SSD</option>
+                                            <option value="Hybrid">Hybrid</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Storage Capacity</label>
+                                        <input type="text" class="form-input" id="desktopStorageCapacity" 
+                                               placeholder="e.g., 512GB">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Graphics Card (VGA)</label>
+                                        <input type="text" class="form-input" id="desktopGraphicsCard" 
+                                               placeholder="e.g., NVIDIA GeForce GTX 1660">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">VRAM</label>
+                                        <input type="text" class="form-input" id="desktopVRAM" 
+                                               placeholder="e.g., 6GB GDDR6">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Power Supply</label>
+                                        <input type="text" class="form-input" id="desktopPowerSupply" 
+                                               placeholder="e.g., 500W 80+ Bronze">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Optical Drive</label>
+                                        <select class="form-select" id="desktopOpticalDrive">
+                                            <option value="">Select Option</option>
+                                            <option value="DVD-RW">DVD-RW</option>
+                                            <option value="DVD-ROM">DVD-ROM</option>
+                                            <option value="Blu-ray">Blu-ray</option>
+                                            <option value="None">None</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Operating System</label>
+                                        <input type="text" class="form-input" id="desktopOperatingSystem" 
+                                               placeholder="e.g., Windows 10 Pro">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Product Key</label>
+                                        <input type="text" class="form-input" id="desktopProductKey" 
+                                               placeholder="e.g., XXXXX-XXXXX-XXXXX-XXXXX-XXXXX">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Additional Hardware</label>
+                                    <textarea class="form-textarea" id="desktopAdditionalHardware" 
+                                              placeholder="Additional cards, ports, etc."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Desktop PC License Software Section -->
+                            <div class="license-section" id="desktopLicenseSection">
+                                <div class="license-header">
+                                    <h4 class="license-title">
+                                        <i class="fas fa-file-contract"></i>
+                                        License Software for Desktop PC
+                                    </h4>
+                                    <button type="button" class="btn btn-primary" onclick="addLicenseEntry('desktop')">
+                                        <i class="fas fa-plus"></i> Add License
+                                    </button>
+                                </div>
+                                
+                                <div class="license-container">
+                                    <div class="license-form-grid" id="desktopLicenseForm">
+                                        <div class="form-group">
+                                            <label class="form-label required">Software Name</label>
+                                            <input type="text" class="form-input" id="desktopLicenseName" 
+                                                   placeholder="e.g., ESET Endpoint Security">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label required">License Type</label>
+                                            <select class="form-select" id="desktopLicenseType">
+                                                <option value="">Select Type</option>
+                                                <option value="Perpetual">Perpetual</option>
+                                                <option value="Subscription">Subscription</option>
+                                                <option value="Trial">Trial</option>
+                                                <option value="Open Source">Open Source</option>
+                                                <option value="Freeware">Freeware</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label required">Expiry Date</label>
+                                            <input type="date" class="form-input" id="desktopLicenseExpiry">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Vendor</label>
+                                            <input type="text" class="form-input" id="desktopLicenseVendor" 
+                                                   placeholder="e.g., ESET, Microsoft">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Version</label>
+                                            <input type="text" class="form-input" id="desktopLicenseVersion" 
+                                                   placeholder="e.g., v9.0, 2024 Edition">
+                                        </div>
+                                        
+                                        <div class="form-group license-key-group">
+                                            <label class="form-label">License Key</label>
+                                            <div class="key-toggle" onclick="toggleLicenseKey('desktop')">
+                                                <i class="fas fa-key"></i>
+                                                <span id="desktopKeyToggleText">Add License Key (Optional)</span>
+                                            </div>
+                                            <div class="license-key-input" id="desktopKeyInput" style="display: none;">
+                                                <input type="password" class="form-input" id="desktopLicenseKey" 
+                                                       placeholder="Enter license key">
+                                                <button type="button" class="key-visibility" onclick="toggleKeyVisibility('desktopLicenseKey')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Notes</label>
+                                            <textarea class="form-textarea" id="desktopLicenseNotes" 
+                                                      placeholder="Additional notes about this license"></textarea>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="button" class="btn btn-success" onclick="saveLicenseEntry('desktop')" style="width: 100%;">
+                                        <i class="fas fa-save"></i> Save License Entry
+                                    </button>
+                                    
+                                    <div class="license-list" id="desktopLicenseList">
+                                        <!-- License entries will be added here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Laptop PC Specific Fields -->
+                        <div class="form-section" id="laptopSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-laptop"></i>
+                                Laptop PC Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Processor</label>
+                                        <input type="text" class="form-input" id="laptopProcessor" 
+                                               placeholder="e.g., Intel Core i5-1135G7">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Processor Speed</label>
+                                        <input type="text" class="form-input" id="laptopProcessorSpeed" 
+                                               placeholder="e.g., 2.4 GHz">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Screen Size</label>
+                                        <input type="text" class="form-input" id="laptopScreenSize" 
+                                               placeholder="e.g., 15.6 inch">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Screen Resolution</label>
+                                        <input type="text" class="form-input" id="laptopScreenResolution" 
+                                               placeholder="e.g., 1920x1080 (Full HD)">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">RAM</label>
+                                        <input type="text" class="form-input" id="laptopRAM" 
+                                               placeholder="e.g., 8GB DDR4">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Storage</label>
+                                        <input type="text" class="form-input" id="laptopStorage" 
+                                               placeholder="e.g., 256GB NVMe SSD">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Graphics Card</label>
+                                        <input type="text" class="form-input" id="laptopGraphicsCard" 
+                                               placeholder="e.g., Intel Iris Xe Graphics">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Battery Life</label>
+                                        <input type="text" class="form-input" id="laptopBatteryLife" 
+                                               placeholder="e.g., 8 hours">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Weight</label>
+                                        <input type="text" class="form-input" id="laptopWeight" 
+                                               placeholder="e.g., 1.8 kg">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Webcam</label>
+                                        <select class="form-select" id="laptopWebcam">
+                                            <option value="">Select Option</option>
+                                            <option value="Built-in HD">Built-in HD</option>
+                                            <option value="Built-in 720p">Built-in 720p</option>
+                                            <option value="Built-in 1080p">Built-in 1080p</option>
+                                            <option value="No Webcam">No Webcam</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Operating System</label>
+                                        <input type="text" class="form-input" id="laptopOperatingSystem" 
+                                               placeholder="e.g., Windows 11 Pro">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Product Key</label>
+                                        <input type="text" class="form-input" id="laptopProductKey" 
+                                               placeholder="e.g., XXXXX-XXXXX-XXXXX-XXXXX-XXXXX">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Ports and Connectivity</label>
+                                    <textarea class="form-textarea" id="laptopPorts" 
+                                              placeholder="e.g., 2x USB 3.0, 1x USB-C, HDMI, WiFi 6, Bluetooth 5.0"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Laptop PC License Software Section -->
+                            <div class="license-section" id="laptopLicenseSection">
+                                <div class="license-header">
+                                    <h4 class="license-title">
+                                        <i class="fas fa-file-contract"></i>
+                                        License Software for Laptop PC
+                                    </h4>
+                                    <button type="button" class="btn btn-primary" onclick="addLicenseEntry('laptop')">
+                                        <i class="fas fa-plus"></i> Add License
+                                    </button>
+                                </div>
+                                
+                                <div class="license-container">
+                                    <div class="license-form-grid" id="laptopLicenseForm">
+                                        <div class="form-group">
+                                            <label class="form-label required">Software Name</label>
+                                            <input type="text" class="form-input" id="laptopLicenseName" 
+                                                   placeholder="e.g., Microsoft Office 365">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label required">License Type</label>
+                                            <select class="form-select" id="laptopLicenseType">
+                                                <option value="">Select Type</option>
+                                                <option value="Perpetual">Perpetual</option>
+                                                <option value="Subscription">Subscription</option>
+                                                <option value="Trial">Trial</option>
+                                                <option value="Open Source">Open Source</option>
+                                                <option value="Freeware">Freeware</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label required">Expiry Date</label>
+                                            <input type="date" class="form-input" id="laptopLicenseExpiry">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Vendor</label>
+                                            <input type="text" class="form-input" id="laptopLicenseVendor" 
+                                                   placeholder="e.g., Microsoft, Adobe">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Version</label>
+                                            <input type="text" class="form-input" id="laptopLicenseVersion" 
+                                                   placeholder="e.g., 2021, v2.0">
+                                        </div>
+                                        
+                                        <div class="form-group license-key-group">
+                                            <label class="form-label">License Key</label>
+                                            <div class="key-toggle" onclick="toggleLicenseKey('laptop')">
+                                                <i class="fas fa-key"></i>
+                                                <span id="laptopKeyToggleText">Add License Key (Optional)</span>
+                                            </div>
+                                            <div class="license-key-input" id="laptopKeyInput" style="display: none;">
+                                                <input type="password" class="form-input" id="laptopLicenseKey" 
+                                                       placeholder="Enter license key">
+                                                <button type="button" class="key-visibility" onclick="toggleKeyVisibility('laptopLicenseKey')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Notes</label>
+                                            <textarea class="form-textarea" id="laptopLicenseNotes" 
+                                                      placeholder="Additional notes about this license"></textarea>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="button" class="btn btn-success" onclick="saveLicenseEntry('laptop')" style="width: 100%;">
+                                        <i class="fas fa-save"></i> Save License Entry
+                                    </button>
+                                    
+                                    <div class="license-list" id="laptopLicenseList">
+                                        <!-- License entries will be added here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Server Specific Fields -->
+                        <div class="form-section" id="serverSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-server"></i>
+                                Server Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Processor (CPU)</label>
+                                        <input type="text" class="form-input" id="serverProcessor" 
+                                               placeholder="e.g., Intel Xeon Gold 6230">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">CPU Cores/Threads</label>
+                                        <input type="text" class="form-input" id="serverCoresThreads" 
+                                               placeholder="e.g., 20 Cores / 40 Threads">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">RAM</label>
+                                        <input type="text" class="form-input" id="serverRAM" 
+                                               placeholder="e.g., 64GB DDR4 ECC">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Storage Configuration</label>
+                                        <input type="text" class="form-input" id="serverStorageConfig" 
+                                               placeholder="e.g., 4x 2TB SAS HDD RAID 10">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Rack Size (U)</label>
+                                        <input type="text" class="form-input" id="serverRackSize" 
+                                               placeholder="e.g., 2U">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">RAID Configuration</label>
+                                        <select class="form-select" id="serverRAID">
+                                            <option value="">Select RAID</option>
+                                            <option value="RAID 0">RAID 0</option>
+                                            <option value="RAID 1">RAID 1</option>
+                                            <option value="RAID 5">RAID 5</option>
+                                            <option value="RAID 6">RAID 6</option>
+                                            <option value="RAID 10">RAID 10</option>
+                                            <option value="None">None</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Network Ports</label>
+                                        <input type="text" class="form-input" id="serverNetworkPorts" 
+                                               placeholder="e.g., 2x 10GbE, 2x 1GbE">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Power Supply</label>
+                                        <input type="text" class="form-input" id="serverPowerSupply" 
+                                               placeholder="e.g., Dual 800W Hot-plug">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Remote Management</label>
+                                        <select class="form-select" id="serverRemoteManagement">
+                                            <option value="">Select Option</option>
+                                            <option value="iDRAC">Dell iDRAC</option>
+                                            <option value="iLO">HP iLO</option>
+                                            <option value="IPMI">IPMI</option>
+                                            <option value="BMC">BMC</option>
+                                            <option value="None">None</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Hot-swappable Drives</label>
+                                        <select class="form-select" id="serverHotSwap">
+                                            <option value="">Select Option</option>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Operating System</label>
+                                        <input type="text" class="form-input" id="serverOperatingSystem" 
+                                               placeholder="e.g., Windows Server 2022, Ubuntu Server 22.04">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Server Role</label>
+                                        <input type="text" class="form-input" id="serverRole" 
+                                               placeholder="e.g., File Server, Domain Controller, Web Server">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Additional Components</label>
+                                    <textarea class="form-textarea" id="serverAdditionalComponents" 
+                                              placeholder="e.g., RAID Controller, Network Cards, Fiber Channel Cards"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Server License Software Section -->
+                            <div class="license-section" id="serverLicenseSection">
+                                <div class="license-header">
+                                    <h4 class="license-title">
+                                        <i class="fas fa-file-contract"></i>
+                                        License Software for Server
+                                    </h4>
+                                    <button type="button" class="btn btn-primary" onclick="addLicenseEntry('server')">
+                                        <i class="fas fa-plus"></i> Add License
+                                    </button>
+                                </div>
+                                
+                                <div class="license-container">
+                                    <div class="license-form-grid" id="serverLicenseForm">
+                                        <div class="form-group">
+                                            <label class="form-label required">Software Name</label>
+                                            <input type="text" class="form-input" id="serverLicenseName" 
+                                                   placeholder="e.g., Windows Server 2022, SQL Server, ESET">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label required">License Type</label>
+                                            <select class="form-select" id="serverLicenseType">
+                                                <option value="">Select Type</option>
+                                                <option value="Perpetual">Perpetual</option>
+                                                <option value="Subscription">Subscription</option>
+                                                <option value="Trial">Trial</option>
+                                                <option value="Open Source">Open Source</option>
+                                                <option value="Freeware">Freeware</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label required">Expiry Date</label>
+                                            <input type="date" class="form-input" id="serverLicenseExpiry">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Vendor</label>
+                                            <input type="text" class="form-input" id="serverLicenseVendor" 
+                                                   placeholder="e.g., Microsoft, Oracle, VMware">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Version</label>
+                                            <input type="text" class="form-input" id="serverLicenseVersion" 
+                                                   placeholder="e.g., Enterprise Edition, v12.0">
+                                        </div>
+                                        
+                                        <div class="form-group license-key-group">
+                                            <label class="form-label">License Key</label>
+                                            <div class="key-toggle" onclick="toggleLicenseKey('server')">
+                                                <i class="fas fa-key"></i>
+                                                <span id="serverKeyToggleText">Add License Key (Optional)</span>
+                                            </div>
+                                            <div class="license-key-input" id="serverKeyInput" style="display: none;">
+                                                <input type="password" class="form-input" id="serverLicenseKey" 
+                                                       placeholder="Enter license key">
+                                                <button type="button" class="key-visibility" onclick="toggleKeyVisibility('serverLicenseKey')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label class="form-label">Notes</label>
+                                            <textarea class="form-textarea" id="serverLicenseNotes" 
+                                                      placeholder="Additional notes about this license"></textarea>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="button" class="btn btn-success" onclick="saveLicenseEntry('server')" style="width: 100%;">
+                                        <i class="fas fa-save"></i> Save License Entry
+                                    </button>
+                                    
+                                    <div class="license-list" id="serverLicenseList">
+                                        <!-- License entries will be added here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Printer Specific Fields -->
+                        <div class="form-section" id="printerSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-print"></i>
+                                Printer Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Printer Type</label>
+                                        <select class="form-select" id="printerType">
+                                            <option value="">Select Type</option>
+                                            <option value="Laser">Laser Printer</option>
+                                            <option value="Inkjet">Inkjet Printer</option>
+                                            <option value="Dot Matrix">Dot Matrix Printer</option>
+                                            <option value="Multifunction">Multifunction Printer</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Color Support</label>
+                                        <select class="form-select" id="colorSupport">
+                                            <option value="">Select Option</option>
+                                            <option value="Color">Color</option>
+                                            <option value="Monochrome">Monochrome (Black & White)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Print Speed</label>
+                                        <input type="text" class="form-input" id="printSpeed" 
+                                               placeholder="e.g., 30 ppm">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Maximum Paper Size</label>
+                                        <input type="text" class="form-input" id="paperSize" 
+                                               placeholder="e.g., A4, Legal, A3">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Toner/Cartridge Model</label>
+                                    <input type="text" class="form-input" id="tonerModel" 
+                                           placeholder="e.g., HP 305A">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scanner Specific Fields -->
+                        <div class="form-section" id="scannerSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-scanner"></i>
+                                Scanner Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Scanner Type</label>
+                                        <select class="form-select" id="scannerType">
+                                            <option value="">Select Type</option>
+                                            <option value="Flatbed">Flatbed Scanner</option>
+                                            <option value="Sheet-fed">Sheet-fed Scanner</option>
+                                            <option value="Portable">Portable Scanner</option>
+                                            <option value="Document">Document Scanner</option>
+                                            <option value="Barcode">Barcode Scanner</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Resolution</label>
+                                        <input type="text" class="form-input" id="scannerResolution" 
+                                               placeholder="e.g., 4800 x 4800 dpi">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Color Depth</label>
+                                        <select class="form-select" id="colorDepth">
+                                            <option value="">Select Color Depth</option>
+                                            <option value="Black & White">Black & White</option>
+                                            <option value="Grayscale">Grayscale (8-bit)</option>
+                                            <option value="Color 24-bit">Color (24-bit)</option>
+                                            <option value="Color 48-bit">Color (48-bit)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Scan Speed</label>
+                                        <input type="text" class="form-input" id="scanSpeed" 
+                                               placeholder="e.g., 25 ppm (B&W), 10 ppm (Color)">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Maximum Scan Size</label>
+                                        <input type="text" class="form-input" id="maxScanSize" 
+                                               placeholder="e.g., A4, Legal, A3">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Interface</label>
+                                        <select class="form-select" id="scannerInterface">
+                                            <option value="">Select Interface</option>
+                                            <option value="USB">USB</option>
+                                            <option value="Network">Network</option>
+                                            <option value="Wi-Fi">Wi-Fi</option>
+                                            <option value="SCSI">SCSI</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Software Included</label>
+                                    <input type="text" class="form-input" id="scannerSoftware" 
+                                           placeholder="e.g., OCR Software, Document Management">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fingerprint Device Specific Fields -->
+                        <div class="form-section" id="fingerprintSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-fingerprint"></i>
+                                Fingerprint Device Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Device Type</label>
+                                        <select class="form-select" id="fingerprintType">
+                                            <option value="">Select Type</option>
+                                            <option value="Time Attendance">Time Attendance</option>
+                                            <option value="Access Control">Access Control</option>
+                                            <option value="Combined">Combined System</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Biometric Type</label>
+                                        <select class="form-select" id="biometricType">
+                                            <option value="">Select Type</option>
+                                            <option value="Fingerprint">Fingerprint</option>
+                                            <option value="Face Recognition">Face Recognition</option>
+                                            <option value="Card + Fingerprint">Card + Fingerprint</option>
+                                            <option value="Multi-biometric">Multi-biometric</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">User Capacity</label>
+                                        <input type="text" class="form-input" id="userCapacity" 
+                                               placeholder="e.g., 1000 users">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Log Capacity</label>
+                                        <input type="text" class="form-input" id="logCapacity" 
+                                               placeholder="e.g., 50,000 logs">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Communication</label>
+                                        <select class="form-select" id="fingerprintComm">
+                                            <option value="">Select Communication</option>
+                                            <option value="TCP/IP">TCP/IP</option>
+                                            <option value="USB">USB</option>
+                                            <option value="Wi-Fi">Wi-Fi</option>
+                                            <option value="RS232/485">RS232/485</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Display</label>
+                                        <input type="text" class="form-input" id="fingerprintDisplay" 
+                                               placeholder="e.g., 2.8-inch TFT">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Software Included</label>
+                                    <input type="text" class="form-input" id="fingerprintSoftware" 
+                                           placeholder="e.g., Attendance Management Software">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Phone Specific Fields -->
+                        <div class="form-section" id="mobileSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-mobile-alt"></i>
+                                Mobile Phone Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Phone Type</label>
+                                        <select class="form-select" id="phoneType">
+                                            <option value="">Select Type</option>
+                                            <option value="Smartphone">Smartphone</option>
+                                            <option value="Feature Phone">Feature Phone</option>
+                                            <option value="Rugged Phone">Rugged Phone</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Operating System</label>
+                                        <input type="text" class="form-input" id="mobileOS" 
+                                               placeholder="e.g., Android 12, iOS 16">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Screen Size</label>
+                                        <input type="text" class="form-input" id="mobileScreenSize" 
+                                               placeholder="e.g., 6.5 inch">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Resolution</label>
+                                        <input type="text" class="form-input" id="mobileResolution" 
+                                               placeholder="e.g., 2400x1080">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Processor</label>
+                                        <input type="text" class="form-input" id="mobileProcessor" 
+                                               placeholder="e.g., Snapdragon 888">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">RAM</label>
+                                        <input type="text" class="form-input" id="mobileRAM" 
+                                               placeholder="e.g., 8GB">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Storage</label>
+                                        <input type="text" class="form-input" id="mobileStorage" 
+                                               placeholder="e.g., 128GB">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Battery Capacity</label>
+                                        <input type="text" class="form-input" id="mobileBattery" 
+                                               placeholder="e.g., 5000 mAh">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">IMEI Number</label>
+                                    <input type="text" class="form-input" id="imeiNumber" 
+                                           placeholder="e.g., 123456789012345">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DVR/NVR Specific Fields -->
+                        <div class="form-section" id="dvrSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-hdd"></i>
+                                DVR/NVR Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Device Type</label>
+                                        <select class="form-select" id="dvrType">
+                                            <option value="">Select Type</option>
+                                            <option value="DVR">DVR (Digital Video Recorder)</option>
+                                            <option value="NVR">NVR (Network Video Recorder)</option>
+                                            <option value="Hybrid">Hybrid DVR/NVR</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Channels</label>
+                                        <input type="text" class="form-input" id="dvrChannels" 
+                                               placeholder="e.g., 8 Channel, 16 Channel">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Resolution Support</label>
+                                        <input type="text" class="form-input" id="dvrResolution" 
+                                               placeholder="e.g., 1080p, 4K">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Hard Drive Capacity</label>
+                                        <input type="text" class="form-input" id="dvrHDD" 
+                                               placeholder="e.g., 2TB, 4TB">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Compression</label>
+                                        <select class="form-select" id="dvrCompression">
+                                            <option value="">Select Compression</option>
+                                            <option value="H.264">H.264</option>
+                                            <option value="H.265">H.265</option>
+                                            <option value="H.265+">H.265+</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Remote Viewing</label>
+                                        <select class="form-select" id="dvrRemote">
+                                            <option value="">Select Option</option>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Power Supply</label>
+                                    <input type="text" class="form-input" id="dvrPower" 
+                                           placeholder="e.g., 12V DC">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Keyboard Specific Fields -->
+                        <div class="form-section" id="keyboardSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-keyboard"></i>
+                                Keyboard Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Keyboard Type</label>
+                                        <select class="form-select" id="keyboardType">
+                                            <option value="">Select Type</option>
+                                            <option value="Wired">Wired</option>
+                                            <option value="Wireless">Wireless</option>
+                                            <option value="Mechanical">Mechanical</option>
+                                            <option value="Membrane">Membrane</option>
+                                            <option value="Gaming">Gaming</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Interface</label>
+                                        <select class="form-select" id="keyboardInterface">
+                                            <option value="">Select Interface</option>
+                                            <option value="USB">USB</option>
+                                            <option value="PS/2">PS/2</option>
+                                            <option value="Bluetooth">Bluetooth</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Layout</label>
+                                        <input type="text" class="form-input" id="keyboardLayout" 
+                                               placeholder="e.g., QWERTY, AZERTY">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Language</label>
+                                        <input type="text" class="form-input" id="keyboardLanguage" 
+                                               placeholder="e.g., English, Sinhala">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Special Features</label>
+                                    <textarea class="form-textarea" id="keyboardFeatures" 
+                                              placeholder="e.g., Backlight, Multimedia keys, Water resistant"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mouse Specific Fields -->
+                        <div class="form-section" id="mouseSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-mouse"></i>
+                                Mouse Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Mouse Type</label>
+                                        <select class="form-select" id="mouseType">
+                                            <option value="">Select Type</option>
+                                            <option value="Wired">Wired</option>
+                                            <option value="Wireless">Wireless</option>
+                                            <option value="Gaming">Gaming</option>
+                                            <option value="Trackball">Trackball</option>
+                                            <option value="Vertical">Vertical/Ergonomic</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Interface</label>
+                                        <select class="form-select" id="mouseInterface">
+                                            <option value="">Select Interface</option>
+                                            <option value="USB">USB</option>
+                                            <option value="PS/2">PS/2</option>
+                                            <option value="Bluetooth">Bluetooth</option>
+                                            <option value="Wireless USB">Wireless USB</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">DPI</label>
+                                        <input type="text" class="form-input" id="mouseDPI" 
+                                               placeholder="e.g., 1600 DPI">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Buttons</label>
+                                        <input type="text" class="form-input" id="mouseButtons" 
+                                               placeholder="e.g., 3 buttons + scroll wheel">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Special Features</label>
+                                    <textarea class="form-textarea" id="mouseFeatures" 
+                                              placeholder="e.g., Programmable buttons, RGB lighting, Ergonomic design"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tablet PC Specific Fields -->
+                        <div class="form-section" id="tabletSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-tablet-alt"></i>
+                                Tablet PC Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Tablet Type</label>
+                                        <select class="form-select" id="tabletType">
+                                            <option value="">Select Type</option>
+                                            <option value="Android">Android Tablet</option>
+                                            <option value="iOS">iPad</option>
+                                            <option value="Windows">Windows Tablet</option>
+                                            <option value="Convertible">Convertible Laptop/Tablet</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Operating System</label>
+                                        <input type="text" class="form-input" id="tabletOS" 
+                                               placeholder="e.g., Android 11, iOS 15, Windows 11">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Screen Size</label>
+                                        <input type="text" class="form-input" id="tabletScreenSize" 
+                                               placeholder="e.g., 10.5 inch">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Resolution</label>
+                                        <input type="text" class="form-input" id="tabletResolution" 
+                                               placeholder="e.g., 2560x1600">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Processor</label>
+                                        <input type="text" class="form-input" id="tabletProcessor" 
+                                               placeholder="e.g., Apple M1, Snapdragon 870">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">RAM</label>
+                                        <input type="text" class="form-input" id="tabletRAM" 
+                                               placeholder="e.g., 8GB">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Storage</label>
+                                        <input type="text" class="form-input" id="tabletStorage" 
+                                               placeholder="e.g., 256GB">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Battery Capacity</label>
+                                        <input type="text" class="form-input" id="tabletBattery" 
+                                               placeholder="e.g., 8000 mAh">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Connectivity</label>
+                                        <select class="form-select" id="tabletConnectivity">
+                                            <option value="">Select Connectivity</option>
+                                            <option value="Wi-Fi">Wi-Fi Only</option>
+                                            <option value="Wi-Fi + Cellular">Wi-Fi + Cellular</option>
+                                            <option value="5G">5G</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Accessories Included</label>
+                                        <input type="text" class="form-input" id="tabletAccessories" 
+                                               placeholder="e.g., Stylus, Keyboard cover, Charger">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Other IT Equipment Fields -->
+                        <div class="form-section" id="otherSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-laptop"></i>
+                                Other IT Equipment Specifications
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Equipment Category</label>
+                                    <select class="form-select" id="otherCategory">
+                                        <option value="">Select Category</option>
+                                        <option value="Networking">Networking Equipment</option>
+                                        <option value="Power">Power Equipment</option>
+                                        <option value="Storage">Storage Devices</option>
+                                        <option value="Peripherals">Computer Peripherals</option>
+                                        <option value="Accessories">Accessories</option>
+                                        <option value="Audio/Video">Audio/Video Equipment</option>
+                                        <option value="Security">Security Equipment</option>
+                                        <option value="Other">Other IT Equipment</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Specific Type</label>
+                                    <input type="text" class="form-input" id="otherSpecificType" 
+                                           placeholder="e.g., Network Switch, External HDD, Webcam, Speaker System">
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Specification 1</label>
+                                        <input type="text" class="form-input" id="otherSpec1" 
+                                               placeholder="e.g., Ports, Capacity, Wattage">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Specification 2</label>
+                                        <input type="text" class="form-input" id="otherSpec2" 
+                                               placeholder="e.g., Speed, Compatibility">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Detailed Description</label>
+                                    <textarea class="form-textarea" id="otherDescription" 
+                                              placeholder="Provide detailed specifications and features of the equipment"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Information -->
+                        <div class="form-section active" id="additionalSection">
+                            <h3 class="section-title">
+                                <i class="fas fa-file-alt"></i>
+                                Additional Information
+                            </h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Purchase Price (LKR)</label>
+                                    <input type="number" class="form-input" id="purchasePrice" 
+                                           placeholder="e.g., 150000">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Supplier/Vendor</label>
+                                    <input type="text" class="form-input" id="supplier" 
+                                           placeholder="e.g., ABC Technologies">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Invoice Number</label>
+                                    <input type="text" class="form-input" id="invoiceNumber" 
+                                           placeholder="e.g., INV-2024-001">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">GPS Location</label>
+                                    <input type="text" class="form-input" id="gpsLocation" 
+                                           placeholder="e.g., 6.9271° N, 79.8612° E">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Maintenance History</label>
+                                    <textarea class="form-textarea" id="maintenanceHistory" 
+                                              placeholder="Record maintenance and repairs..."></textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Remarks/Notes</label>
+                                    <textarea class="form-textarea" id="remarks" 
+                                              placeholder="Any additional notes..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-cloud-upload-alt"></i> Save to Firebase
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="generateAssetTag()">
+                                <i class="fas fa-qrcode"></i> Generate Asset Tag
+                            </button>
+                            <button type="button" class="btn btn-warning" onclick="clearForm()">
+                                <i class="fas fa-redo"></i> Clear Form
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Asset Tag Display -->
+            <div class="card" id="assetTagDisplay" style="display: none;">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-tag"></i>
+                        </div>
+                        <h2 class="card-title">CTM IT Department Asset Tag</h2>
+                    </div>
+                </div>
+                
+                <div class="asset-tag-preview" id="assetTagPreview">
+                    <div class="asset-tag-qr" id="assetTagQR"></div>
+                    <div class="asset-tag-text">
+                        <div style="font-weight: 600; font-size: 1rem; color: var(--primary-blue); margin-bottom: 0.25rem;">
+                            CTM IT DEPARTMENT
+                        </div>
+                        <div style="margin-bottom: 0.25rem;">
+                            Asset Tag: <span id="previewAssetTag" style="font-weight: 600;">CTM-IT-0001</span>
+                        </div>
+                        <div style="margin-bottom: 0.25rem;">
+                            Type: <span id="previewAssetType">Desktop PC</span>
+                        </div>
+                        <div>
+                            Serial: <span id="previewSerial">SN123456</span>
+                        </div>
+                    </div>
+                    <div class="asset-tag-footer">
+                        Property of the CTM IT Department
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="downloadAssetTag()">
+                        <i class="fas fa-download"></i> Download Tag
+                    </button>
+                    <button class="btn btn-secondary" onclick="printAssetTag()">
+                        <i class="fas fa-print"></i> Print Tag
+                    </button>
+                    <button class="btn btn-success" onclick="saveAssetTagAsJPEG()">
+                        <i class="fas fa-file-image"></i> Save as JPEG
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">CTM IT Department - Realtime Asset Management System</div>
+            <div class="copyright">
+                &copy; 2026 Real-time Asset Management powered by Lakmal Sanjeewa Jayawickrama
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==============================================
+        // FIREBASE CONFIGURATION
+        // ==============================================
+        
+        // Your Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyABuZWbNXGJ359mbctDsX-SSxwkUd3v1KY",
+            authDomain: "student-management-syste-d39a3.firebaseapp.com",
+            databaseURL: "https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "student-management-syste-d39a3",
+            storageBucket: "student-management-syste-d39a3.firebasestorage.app",
+            messagingSenderId: "36925529487",
+            appId: "1:36925529487:web:385e1af7ba174f8440fffa"
+        };
+
+        // Initialize Firebase
+        let firebaseApp;
+        let database;
+        let isFirebaseInitialized = false;
+        let assetsRef;
+        let logsRef;
+        let connectionRef;
+
+        // ==============================================
+        // GLOBAL VARIABLES
+        // ==============================================
+        let assetsDB = {};
+        let offlineAssets = JSON.parse(localStorage.getItem('ctmOfflineAssets')) || {};
+        let firebaseConnected = false;
+        let isEditMode = false;
+        let editAssetTag = '';
+
+        // License software data
+        let desktopLicenses = [];
+        let laptopLicenses = [];
+        let serverLicenses = [];
+
+        // Asset data structure - UPDATED WITH LICENSE SOFTWARE AND DEPARTMENT FIELD
+        const defaultAsset = {
+            assetType: '',
+            assetTag: '',
+            serialNumber: '',
+            brandModel: '',
+            purchaseDate: '',
+            warrantyPeriod: '',
+            location: '',
+            previouslyAssignedTo: '',
+            assignedTo: '',
+            department: '', // Added department field
+            status: 'Active',
+            
+            // Desktop PC specific
+            desktopProcessor: '',
+            desktopProcessorSpeed: '',
+            desktopMotherboard: '',
+            desktopRAM: '',
+            desktopStorageType: '',
+            desktopStorageCapacity: '',
+            desktopGraphicsCard: '',
+            desktopVRAM: '',
+            desktopPowerSupply: '',
+            desktopOpticalDrive: '',
+            desktopOperatingSystem: '',
+            desktopProductKey: '',
+            desktopAdditionalHardware: '',
+            desktopLicenses: [],
+            
+            // Laptop PC specific
+            laptopProcessor: '',
+            laptopProcessorSpeed: '',
+            laptopScreenSize: '',
+            laptopScreenResolution: '',
+            laptopRAM: '',
+            laptopStorage: '',
+            laptopGraphicsCard: '',
+            laptopBatteryLife: '',
+            laptopWeight: '',
+            laptopWebcam: '',
+            laptopOperatingSystem: '',
+            laptopProductKey: '',
+            laptopPorts: '',
+            laptopLicenses: [],
+            
+            // Server specific
+            serverProcessor: '',
+            serverCoresThreads: '',
+            serverRAM: '',
+            serverStorageConfig: '',
+            serverRackSize: '',
+            serverRAID: '',
+            serverNetworkPorts: '',
+            serverPowerSupply: '',
+            serverRemoteManagement: '',
+            serverHotSwap: '',
+            serverOperatingSystem: '',
+            serverRole: '',
+            serverAdditionalComponents: '',
+            serverLicenses: [],
+            
+            // Printer specific
+            printerType: '',
+            colorSupport: '',
+            printSpeed: '',
+            paperSize: '',
+            tonerModel: '',
+            
+            // Scanner specific
+            scannerType: '',
+            scannerResolution: '',
+            colorDepth: '',
+            scanSpeed: '',
+            maxScanSize: '',
+            scannerInterface: '',
+            scannerSoftware: '',
+            
+            // Fingerprint Device specific
+            fingerprintType: '',
+            biometricType: '',
+            userCapacity: '',
+            logCapacity: '',
+            fingerprintComm: '',
+            fingerprintDisplay: '',
+            fingerprintSoftware: '',
+            
+            // Mobile Phone specific
+            phoneType: '',
+            mobileOS: '',
+            mobileScreenSize: '',
+            mobileResolution: '',
+            mobileProcessor: '',
+            mobileRAM: '',
+            mobileStorage: '',
+            mobileBattery: '',
+            imeiNumber: '',
+            
+            // DVR/NVR specific
+            dvrType: '',
+            dvrChannels: '',
+            dvrResolution: '',
+            dvrHDD: '',
+            dvrCompression: '',
+            dvrRemote: '',
+            dvrPower: '',
+            
+            // Keyboard specific
+            keyboardType: '',
+            keyboardInterface: '',
+            keyboardLayout: '',
+            keyboardLanguage: '',
+            keyboardFeatures: '',
+            
+            // Mouse specific
+            mouseType: '',
+            mouseInterface: '',
+            mouseDPI: '',
+            mouseButtons: '',
+            mouseFeatures: '',
+            
+            // Tablet PC specific
+            tabletType: '',
+            tabletOS: '',
+            tabletScreenSize: '',
+            tabletResolution: '',
+            tabletProcessor: '',
+            tabletRAM: '',
+            tabletStorage: '',
+            tabletBattery: '',
+            tabletConnectivity: '',
+            tabletAccessories: '',
+            
+            // Other IT specific
+            otherCategory: '',
+            otherSpecificType: '',
+            otherSpec1: '',
+            otherSpec2: '',
+            otherDescription: '',
+            
+            // Additional
+            purchasePrice: '',
+            supplier: '',
+            invoiceNumber: '',
+            gpsLocation: '',
+            maintenanceHistory: '',
+            remarks: '',
+            
+            // Metadata
+            createdAt: '',
+            updatedAt: '',
+            createdBy: 'System',
+            firebaseId: '',
+            lastSynced: ''
+        };
+
+        // ==============================================
+        // MOBILE NAVIGATION SCROLL FUNCTIONS - FIXED
+        // ==============================================
+        
+        function setupMobileNavigation() {
+            const nav = document.getElementById('mobileNav');
+            const scrollLeftBtn = document.getElementById('navScrollLeft');
+            const scrollRightBtn = document.getElementById('navScrollRight');
+            
+            // Initially hide scroll buttons
+            scrollLeftBtn.classList.add('hidden');
+            scrollRightBtn.classList.add('hidden');
+            
+            // Check if scrolling is needed
+            function checkScrollButtons() {
+                if (nav.scrollWidth > nav.clientWidth) {
+                    // Scrolling is needed
+                    updateScrollButtons();
+                    scrollLeftBtn.classList.remove('hidden');
+                    scrollRightBtn.classList.remove('hidden');
+                } else {
+                    // No scrolling needed
+                    scrollLeftBtn.classList.add('hidden');
+                    scrollRightBtn.classList.add('hidden');
+                }
+            }
+            
+            function updateScrollButtons() {
+                // Show/hide left button
+                if (nav.scrollLeft <= 10) {
+                    scrollLeftBtn.classList.add('hidden');
+                } else {
+                    scrollLeftBtn.classList.remove('hidden');
+                }
+                
+                // Show/hide right button
+                if (nav.scrollLeft >= nav.scrollWidth - nav.clientWidth - 10) {
+                    scrollRightBtn.classList.add('hidden');
+                } else {
+                    scrollRightBtn.classList.remove('hidden');
+                }
+            }
+            
+            // Set up scroll button click events
+            scrollLeftBtn.addEventListener('click', () => {
+                nav.scrollBy({ left: -150, behavior: 'smooth' });
+            });
+            
+            scrollRightBtn.addEventListener('click', () => {
+                nav.scrollBy({ left: 150, behavior: 'smooth' });
+            });
+            
+            // Update buttons on scroll
+            nav.addEventListener('scroll', updateScrollButtons);
+            
+            // Check on window resize
+            window.addEventListener('resize', checkScrollButtons);
+            
+            // Initial check
+            setTimeout(checkScrollButtons, 100);
+        }
+
+        // ==============================================
+        // FIXED FIREBASE INITIALIZATION
+        // ==============================================
+        function initializeFirebase() {
+            try {
+                // Check if Firebase app is already initialized
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                } else {
+                    firebaseApp = firebase.app();
+                }
+                
+                database = firebase.database();
+                isFirebaseInitialized = true;
+                
+                // Set database references
+                assetsRef = database.ref('assets');
+                logsRef = database.ref('scanLogs');
+                connectionRef = database.ref('.info/connected');
+                
+                // Set up connection status listener
+                connectionRef.on('value', (snapshot) => {
+                    firebaseConnected = snapshot.val();
+                    updateConnectionStatus(firebaseConnected);
+                    
+                    if (firebaseConnected) {
+                        showToast('Connected to Firebase Database', 'success');
+                    } else {
+                        showToast('Disconnected from Firebase. Working offline.', 'warning');
+                    }
+                });
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showToast(`Firebase connection error: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+                
+                // Load from local backup if available
+                const backup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+                assetsDB = backup;
+                
+                return false;
+            }
+        }
+
+        // ==============================================
+        // CONNECTION STATUS UPDATES
+        // ==============================================
+        function updateConnectionStatus(connected) {
+            const firebaseStatus = document.getElementById('firebaseStatus');
+            
+            if (connected) {
+                firebaseStatus.className = 'firebase-status firebase-connected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Connected to Firebase</span>';
+            } else {
+                firebaseStatus.className = 'firebase-status firebase-disconnected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Disconnected from Firebase</span>';
+            }
+        }
+
+        // ==============================================
+        // FIXED: Firebase ID generation and lookup functions
+        // ==============================================
+        
+        function generateFirebaseId(assetTag) {
+            return assetTag.replace(/[^a-zA-Z0-9]/g, '_');
+        }
+
+        function findAssetByTag(assetTag) {
+            // First check in assetsDB by direct key (Firebase ID)
+            const firebaseId = generateFirebaseId(assetTag);
+            if (assetsDB[firebaseId]) {
+                return assetsDB[firebaseId];
+            }
+            
+            // If not found by Firebase ID, search through all assets
+            for (const key in assetsDB) {
+                const asset = assetsDB[key];
+                if (asset && asset.assetTag === assetTag) {
+                    return asset;
+                }
+            }
+            
+            return null;
+        }
+        
+        // ==============================================
+        // NEW ASSET TYPE MANAGEMENT FUNCTIONS
+        // ==============================================
+
+        function setDeviceType(type) {
+            document.getElementById('assetType').value = type;
+            showDeviceSpecificFields();
+            
+            // Update quick buttons active state
+            document.querySelectorAll('.asset-type-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.includes(type)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function showDeviceSpecificFields() {
+            const assetType = document.getElementById('assetType').value;
+            
+            // Hide all sections first
+            document.querySelectorAll('.form-section').forEach(section => {
+                if (!section.id.includes('basic') && !section.id.includes('additional')) {
+                    section.style.display = 'none';
+                    section.classList.remove('active');
+                }
+            });
+            
+            // Show specific section based on asset type
+            switch(assetType) {
+                case 'Desktop PC':
+                    document.getElementById('desktopSection').style.display = 'block';
+                    document.getElementById('desktopSection').classList.add('active');
+                    document.getElementById('desktopLicenseSection').style.display = 'block';
+                    break;
+                case 'Laptop PC':
+                    document.getElementById('laptopSection').style.display = 'block';
+                    document.getElementById('laptopSection').classList.add('active');
+                    document.getElementById('laptopLicenseSection').style.display = 'block';
+                    break;
+                case 'Server':
+                    document.getElementById('serverSection').style.display = 'block';
+                    document.getElementById('serverSection').classList.add('active');
+                    document.getElementById('serverLicenseSection').style.display = 'block';
+                    break;
+                case 'Printer':
+                    document.getElementById('printerSection').style.display = 'block';
+                    document.getElementById('printerSection').classList.add('active');
+                    break;
+                case 'Scanner':
+                    document.getElementById('scannerSection').style.display = 'block';
+                    document.getElementById('scannerSection').classList.add('active');
+                    break;
+                case 'Fingerprint Device':
+                    document.getElementById('fingerprintSection').style.display = 'block';
+                    document.getElementById('fingerprintSection').classList.add('active');
+                    break;
+                case 'Mobile Phone':
+                    document.getElementById('mobileSection').style.display = 'block';
+                    document.getElementById('mobileSection').classList.add('active');
+                    break;
+                case 'DVR/NVR':
+                    document.getElementById('dvrSection').style.display = 'block';
+                    document.getElementById('dvrSection').classList.add('active');
+                    break;
+                case 'Keyboard':
+                    document.getElementById('keyboardSection').style.display = 'block';
+                    document.getElementById('keyboardSection').classList.add('active');
+                    break;
+                case 'Mouse':
+                    document.getElementById('mouseSection').style.display = 'block';
+                    document.getElementById('mouseSection').classList.add('active');
+                    break;
+                case 'Tablet PC':
+                    document.getElementById('tabletSection').style.display = 'block';
+                    document.getElementById('tabletSection').classList.add('active');
+                    break;
+                case 'Other IT':
+                    document.getElementById('otherSection').style.display = 'block';
+                    document.getElementById('otherSection').classList.add('active');
+                    break;
+            }
+            
+            // Hide license sections for non-desktop/laptop/server
+            if (assetType !== 'Desktop PC' && assetType !== 'Laptop PC' && assetType !== 'Server') {
+                document.getElementById('desktopLicenseSection').style.display = 'none';
+                document.getElementById('laptopLicenseSection').style.display = 'none';
+                document.getElementById('serverLicenseSection').style.display = 'none';
+            }
+        }
+
+        // ==============================================
+        // LICENSE SOFTWARE MANAGEMENT FUNCTIONS
+        // ==============================================
+
+        function toggleLicenseKey(deviceType) {
+            const keyInput = document.getElementById(`${deviceType}KeyInput`);
+            const toggleText = document.getElementById(`${deviceType}KeyToggleText`);
+            const toggleBtn = document.querySelector(`#${deviceType}LicenseForm .key-toggle`);
+            
+            if (keyInput.style.display === 'none' || keyInput.style.display === '') {
+                keyInput.style.display = 'block';
+                toggleText.textContent = 'Remove License Key';
+                toggleBtn.classList.add('active');
+            } else {
+                keyInput.style.display = 'none';
+                toggleText.textContent = 'Add License Key (Optional)';
+                toggleBtn.classList.remove('active');
+                document.getElementById(`${deviceType}LicenseKey`).value = '';
+            }
+        }
+
+        function toggleKeyVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            const button = input.nextElementSibling;
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            } else {
+                input.type = 'password';
+                button.innerHTML = '<i class="fas fa-eye"></i>';
+            }
+        }
+
+        function addLicenseEntry(deviceType) {
+            // Clear the form
+            document.getElementById(`${deviceType}LicenseName`).value = '';
+            document.getElementById(`${deviceType}LicenseType`).value = '';
+            document.getElementById(`${deviceType}LicenseExpiry`).value = '';
+            document.getElementById(`${deviceType}LicenseVendor`).value = '';
+            document.getElementById(`${deviceType}LicenseVersion`).value = '';
+            document.getElementById(`${deviceType}LicenseKey`).value = '';
+            document.getElementById(`${deviceType}LicenseNotes`).value = '';
+            
+            // Reset key input
+            document.getElementById(`${deviceType}KeyInput`).style.display = 'none';
+            document.getElementById(`${deviceType}KeyToggleText`).textContent = 'Add License Key (Optional)';
+            document.querySelector(`#${deviceType}LicenseForm .key-toggle`).classList.remove('active');
+            
+            showToast('License form cleared. Enter new license details.', 'info');
+        }
+
+        function saveLicenseEntry(deviceType) {
+            const name = document.getElementById(`${deviceType}LicenseName`).value.trim();
+            const type = document.getElementById(`${deviceType}LicenseType`).value;
+            const expiry = document.getElementById(`${deviceType}LicenseExpiry`).value;
+            const vendor = document.getElementById(`${deviceType}LicenseVendor`).value.trim();
+            const version = document.getElementById(`${deviceType}LicenseVersion`).value.trim();
+            const key = document.getElementById(`${deviceType}LicenseKey`).value.trim();
+            const notes = document.getElementById(`${deviceType}LicenseNotes`).value.trim();
+            
+            if (!name) {
+                showToast('Please enter software name', 'error');
+                return;
+            }
+            
+            if (!type) {
+                showToast('Please select license type', 'error');
+                return;
+            }
+            
+            if (!expiry) {
+                showToast('Please select expiry date', 'error');
+                return;
+            }
+            
+            const licenseEntry = {
+                id: Date.now(),
+                softwareName: name,
+                licenseType: type,
+                expiryDate: expiry,
+                vendor: vendor,
+                version: version,
+                licenseKey: key,
+                notes: notes,
+                addedAt: new Date().toISOString()
+            };
+            
+            // Add to appropriate array
+            if (deviceType === 'desktop') {
+                desktopLicenses.push(licenseEntry);
+            } else if (deviceType === 'laptop') {
+                laptopLicenses.push(licenseEntry);
+            } else if (deviceType === 'server') {
+                serverLicenses.push(licenseEntry);
+            }
+            
+            // Update display
+            updateLicenseList(deviceType);
+            
+            // Clear form
+            addLicenseEntry(deviceType);
+            
+            showToast('License added successfully', 'success');
+        }
+
+        function updateLicenseList(deviceType) {
+            const licenseList = document.getElementById(`${deviceType}LicenseList`);
+            const licenses = deviceType === 'desktop' ? desktopLicenses : 
+                            deviceType === 'laptop' ? laptopLicenses : 
+                            serverLicenses;
+            
+            if (licenses.length === 0) {
+                licenseList.innerHTML = `
+                    <div class="no-licenses">
+                        <i class="fas fa-file-contract"></i>
+                        <p>No license software added yet</p>
+                        <small>Click "Add License" to add software licenses</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            licenses.forEach((license, index) => {
+                const expiryDate = new Date(license.expiryDate);
+                const today = new Date();
+                const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+                let expiryClass = '';
+                
+                if (daysUntilExpiry < 0) {
+                    expiryClass = 'expired';
+                } else if (daysUntilExpiry < 30) {
+                    expiryClass = 'expiring-soon';
+                } else if (daysUntilExpiry < 90) {
+                    expiryClass = 'expiring-warning';
+                }
+                
+                html += `
+                    <div class="license-entry">
+                        <div class="license-entry-header">
+                            <div>
+                                <div class="license-entry-title">${license.softwareName}</div>
+                                <div class="license-entry-number">${license.version} • ${license.vendor || 'No vendor'}</div>
+                            </div>
+                            <button type="button" class="remove-license" onclick="removeLicense('${deviceType}', ${license.id})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="form-grid">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">License Type</label>
+                                    <div class="form-input" style="background: var(--light-gray);">${license.licenseType}</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Expiry Date</label>
+                                    <div class="form-input ${expiryClass}" style="background: var(--light-gray);">
+                                        ${license.expiryDate}
+                                        ${daysUntilExpiry < 0 ? ' (Expired)' : daysUntilExpiry < 30 ? ` (${daysUntilExpiry} days left)` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${license.licenseKey ? `
+                            <div class="form-group">
+                                <label class="form-label">License Key</label>
+                                <div class="form-input" style="background: var(--light-gray); font-family: monospace;">
+                                    ${'*'.repeat(license.licenseKey.length)}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            ${license.notes ? `
+                            <div class="form-group">
+                                <label class="form-label">Notes</label>
+                                <div class="form-input" style="background: var(--light-gray); min-height: 60px;">
+                                    ${license.notes}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            licenseList.innerHTML = html;
+        }
+
+        function removeLicense(deviceType, licenseId) {
+            if (confirm('Are you sure you want to remove this license?')) {
+                if (deviceType === 'desktop') {
+                    desktopLicenses = desktopLicenses.filter(license => license.id !== licenseId);
+                } else if (deviceType === 'laptop') {
+                    laptopLicenses = laptopLicenses.filter(license => license.id !== licenseId);
+                } else if (deviceType === 'server') {
+                    serverLicenses = serverLicenses.filter(license => license.id !== licenseId);
+                }
+                
+                updateLicenseList(deviceType);
+                showToast('License removed', 'success');
+            }
+        }
+
+        // ==============================================
+        // ASSET FORM HANDLING - UPDATED WITH LICENSE SOFTWARE
+        // ==============================================
+
+        async function saveAsset() {
+            const assetData = { ...defaultAsset };
+            
+            // Basic information
+            assetData.assetType = document.getElementById('assetType').value;
+            assetData.assetTag = document.getElementById('assetTag').value;
+            assetData.serialNumber = document.getElementById('serialNumber').value;
+            assetData.brandModel = document.getElementById('brandModel').value;
+            assetData.purchaseDate = document.getElementById('purchaseDate').value;
+            assetData.warrantyPeriod = document.getElementById('warrantyPeriod').value;
+            assetData.location = document.getElementById('location').value;
+            assetData.previouslyAssignedTo = document.getElementById('previouslyAssignedTo').value;
+            assetData.assignedTo = document.getElementById('assignedTo').value;
+            assetData.department = document.getElementById('department').value; // Added department
+            assetData.status = document.getElementById('status').value;
+            
+            // Check if asset already exists
+            const existingAsset = findAssetByTag(assetData.assetTag);
+            if (existingAsset && !isEditMode) {
+                if (confirm(`Asset ${assetData.assetTag} already exists. Do you want to update it?`)) {
+                    isEditMode = true;
+                    editAssetTag = assetData.assetTag;
+                    const submitBtn = document.querySelector('#assetForm button[type="submit"]');
+                    submitBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Update Asset';
+                    showToast(`Editing existing asset: ${assetData.assetTag}`, 'warning');
+                    return;
+                } else {
+                    return;
+                }
+            }
+            
+            // Collect data based on asset type
+            if (assetData.assetType === 'Desktop PC') {
+                assetData.desktopProcessor = document.getElementById('desktopProcessor').value;
+                assetData.desktopProcessorSpeed = document.getElementById('desktopProcessorSpeed').value;
+                assetData.desktopMotherboard = document.getElementById('desktopMotherboard').value;
+                assetData.desktopRAM = document.getElementById('desktopRAM').value;
+                assetData.desktopStorageType = document.getElementById('desktopStorageType').value;
+                assetData.desktopStorageCapacity = document.getElementById('desktopStorageCapacity').value;
+                assetData.desktopGraphicsCard = document.getElementById('desktopGraphicsCard').value;
+                assetData.desktopVRAM = document.getElementById('desktopVRAM').value;
+                assetData.desktopPowerSupply = document.getElementById('desktopPowerSupply').value;
+                assetData.desktopOpticalDrive = document.getElementById('desktopOpticalDrive').value;
+                assetData.desktopOperatingSystem = document.getElementById('desktopOperatingSystem').value;
+                assetData.desktopProductKey = document.getElementById('desktopProductKey').value;
+                assetData.desktopAdditionalHardware = document.getElementById('desktopAdditionalHardware').value;
+                assetData.desktopLicenses = desktopLicenses;
+            }
+            
+            if (assetData.assetType === 'Laptop PC') {
+                assetData.laptopProcessor = document.getElementById('laptopProcessor').value;
+                assetData.laptopProcessorSpeed = document.getElementById('laptopProcessorSpeed').value;
+                assetData.laptopScreenSize = document.getElementById('laptopScreenSize').value;
+                assetData.laptopScreenResolution = document.getElementById('laptopScreenResolution').value;
+                assetData.laptopRAM = document.getElementById('laptopRAM').value;
+                assetData.laptopStorage = document.getElementById('laptopStorage').value;
+                assetData.laptopGraphicsCard = document.getElementById('laptopGraphicsCard').value;
+                assetData.laptopBatteryLife = document.getElementById('laptopBatteryLife').value;
+                assetData.laptopWeight = document.getElementById('laptopWeight').value;
+                assetData.laptopWebcam = document.getElementById('laptopWebcam').value;
+                assetData.laptopOperatingSystem = document.getElementById('laptopOperatingSystem').value;
+                assetData.laptopProductKey = document.getElementById('laptopProductKey').value;
+                assetData.laptopPorts = document.getElementById('laptopPorts').value;
+                assetData.laptopLicenses = laptopLicenses;
+            }
+            
+            if (assetData.assetType === 'Server') {
+                assetData.serverProcessor = document.getElementById('serverProcessor').value;
+                assetData.serverCoresThreads = document.getElementById('serverCoresThreads').value;
+                assetData.serverRAM = document.getElementById('serverRAM').value;
+                assetData.serverStorageConfig = document.getElementById('serverStorageConfig').value;
+                assetData.serverRackSize = document.getElementById('serverRackSize').value;
+                assetData.serverRAID = document.getElementById('serverRAID').value;
+                assetData.serverNetworkPorts = document.getElementById('serverNetworkPorts').value;
+                assetData.serverPowerSupply = document.getElementById('serverPowerSupply').value;
+                assetData.serverRemoteManagement = document.getElementById('serverRemoteManagement').value;
+                assetData.serverHotSwap = document.getElementById('serverHotSwap').value;
+                assetData.serverOperatingSystem = document.getElementById('serverOperatingSystem').value;
+                assetData.serverRole = document.getElementById('serverRole').value;
+                assetData.serverAdditionalComponents = document.getElementById('serverAdditionalComponents').value;
+                assetData.serverLicenses = serverLicenses;
+            }
+            
+            if (assetData.assetType === 'Printer') {
+                assetData.printerType = document.getElementById('printerType').value;
+                assetData.colorSupport = document.getElementById('colorSupport').value;
+                assetData.printSpeed = document.getElementById('printSpeed').value;
+                assetData.paperSize = document.getElementById('paperSize').value;
+                assetData.tonerModel = document.getElementById('tonerModel').value;
+            }
+            
+            if (assetData.assetType === 'Scanner') {
+                assetData.scannerType = document.getElementById('scannerType').value;
+                assetData.scannerResolution = document.getElementById('scannerResolution').value;
+                assetData.colorDepth = document.getElementById('colorDepth').value;
+                assetData.scanSpeed = document.getElementById('scanSpeed').value;
+                assetData.maxScanSize = document.getElementById('maxScanSize').value;
+                assetData.scannerInterface = document.getElementById('scannerInterface').value;
+                assetData.scannerSoftware = document.getElementById('scannerSoftware').value;
+            }
+            
+            if (assetData.assetType === 'Fingerprint Device') {
+                assetData.fingerprintType = document.getElementById('fingerprintType').value;
+                assetData.biometricType = document.getElementById('biometricType').value;
+                assetData.userCapacity = document.getElementById('userCapacity').value;
+                assetData.logCapacity = document.getElementById('logCapacity').value;
+                assetData.fingerprintComm = document.getElementById('fingerprintComm').value;
+                assetData.fingerprintDisplay = document.getElementById('fingerprintDisplay').value;
+                assetData.fingerprintSoftware = document.getElementById('fingerprintSoftware').value;
+            }
+            
+            if (assetData.assetType === 'Mobile Phone') {
+                assetData.phoneType = document.getElementById('phoneType').value;
+                assetData.mobileOS = document.getElementById('mobileOS').value;
+                assetData.mobileScreenSize = document.getElementById('mobileScreenSize').value;
+                assetData.mobileResolution = document.getElementById('mobileResolution').value;
+                assetData.mobileProcessor = document.getElementById('mobileProcessor').value;
+                assetData.mobileRAM = document.getElementById('mobileRAM').value;
+                assetData.mobileStorage = document.getElementById('mobileStorage').value;
+                assetData.mobileBattery = document.getElementById('mobileBattery').value;
+                assetData.imeiNumber = document.getElementById('imeiNumber').value;
+            }
+            
+            if (assetData.assetType === 'DVR/NVR') {
+                assetData.dvrType = document.getElementById('dvrType').value;
+                assetData.dvrChannels = document.getElementById('dvrChannels').value;
+                assetData.dvrResolution = document.getElementById('dvrResolution').value;
+                assetData.dvrHDD = document.getElementById('dvrHDD').value;
+                assetData.dvrCompression = document.getElementById('dvrCompression').value;
+                assetData.dvrRemote = document.getElementById('dvrRemote').value;
+                assetData.dvrPower = document.getElementById('dvrPower').value;
+            }
+            
+            if (assetData.assetType === 'Keyboard') {
+                assetData.keyboardType = document.getElementById('keyboardType').value;
+                assetData.keyboardInterface = document.getElementById('keyboardInterface').value;
+                assetData.keyboardLayout = document.getElementById('keyboardLayout').value;
+                assetData.keyboardLanguage = document.getElementById('keyboardLanguage').value;
+                assetData.keyboardFeatures = document.getElementById('keyboardFeatures').value;
+            }
+            
+            if (assetData.assetType === 'Mouse') {
+                assetData.mouseType = document.getElementById('mouseType').value;
+                assetData.mouseInterface = document.getElementById('mouseInterface').value;
+                assetData.mouseDPI = document.getElementById('mouseDPI').value;
+                assetData.mouseButtons = document.getElementById('mouseButtons').value;
+                assetData.mouseFeatures = document.getElementById('mouseFeatures').value;
+            }
+            
+            if (assetData.assetType === 'Tablet PC') {
+                assetData.tabletType = document.getElementById('tabletType').value;
+                assetData.tabletOS = document.getElementById('tabletOS').value;
+                assetData.tabletScreenSize = document.getElementById('tabletScreenSize').value;
+                assetData.tabletResolution = document.getElementById('tabletResolution').value;
+                assetData.tabletProcessor = document.getElementById('tabletProcessor').value;
+                assetData.tabletRAM = document.getElementById('tabletRAM').value;
+                assetData.tabletStorage = document.getElementById('tabletStorage').value;
+                assetData.tabletBattery = document.getElementById('tabletBattery').value;
+                assetData.tabletConnectivity = document.getElementById('tabletConnectivity').value;
+                assetData.tabletAccessories = document.getElementById('tabletAccessories').value;
+            }
+            
+            if (assetData.assetType === 'Other IT') {
+                assetData.otherCategory = document.getElementById('otherCategory').value;
+                assetData.otherSpecificType = document.getElementById('otherSpecificType').value;
+                assetData.otherSpec1 = document.getElementById('otherSpec1').value;
+                assetData.otherSpec2 = document.getElementById('otherSpec2').value;
+                assetData.otherDescription = document.getElementById('otherDescription').value;
+            }
+            
+            // Common additional information
+            assetData.purchasePrice = document.getElementById('purchasePrice').value;
+            assetData.supplier = document.getElementById('supplier').value;
+            assetData.invoiceNumber = document.getElementById('invoiceNumber').value;
+            assetData.gpsLocation = document.getElementById('gpsLocation').value;
+            assetData.maintenanceHistory = document.getElementById('maintenanceHistory').value;
+            assetData.remarks = document.getElementById('remarks').value;
+            
+            // Add metadata
+            assetData.createdAt = new Date().toISOString();
+            assetData.updatedAt = new Date().toISOString();
+            assetData.createdBy = 'System User';
+            
+            // Save to Firebase or offline
+            const result = await saveAssetToStorage(assetData);
+            
+            if (result.success || result.offline) {
+                generateAssetTag();
+                
+                if (result.success) {
+                    showToast(`Asset ${assetData.assetTag} saved to Firebase!`, 'success');
+                } else if (result.offline) {
+                    showToast(`Asset ${assetData.assetTag} saved offline (will sync when online)`, 'warning');
+                }
+                
+                if (!isEditMode) {
+                    setTimeout(() => {
+                        clearForm();
+                    }, 2000);
+                }
+            }
+        }
+
+        async function saveAssetToStorage(assetData) {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                saveAssetOffline(assetData);
+                return { success: false, offline: true, assetTag: assetData.assetTag };
+            }
+            
+            try {
+                const firebaseId = generateFirebaseId(assetData.assetTag);
+                assetData.firebaseId = firebaseId;
+                assetData.lastSynced = new Date().toISOString();
+                
+                if (isEditMode && editAssetTag) {
+                    // Update existing asset
+                    await assetsRef.child(firebaseId).update(assetData);
+                    showToast(`Asset ${assetData.assetTag} updated in Firebase!`, 'success');
+                } else {
+                    // Create new asset
+                    await assetsRef.child(firebaseId).set(assetData);
+                    showToast(`Asset ${assetData.assetTag} saved to Firebase!`, 'success');
+                }
+                
+                // Log the activity
+                await logScanActivity(assetData.assetTag, isEditMode ? 'ASSET_UPDATED' : 'ASSET_CREATED', {
+                    assetType: assetData.assetType,
+                    location: assetData.location,
+                    assignedTo: assetData.assignedTo,
+                    department: assetData.department,
+                    licensesCount: assetData.desktopLicenses?.length || assetData.laptopLicenses?.length || assetData.serverLicenses?.length || 0
+                });
+                
+                return { success: true, assetTag: assetData.assetTag, firebaseId: firebaseId };
+                
+            } catch (error) {
+                console.error('Firebase save error:', error);
+                saveAssetOffline(assetData);
+                return { success: false, offline: true, assetTag: assetData.assetTag };
+            }
+        }
+
+        function saveAssetOffline(assetData) {
+            const assetTag = assetData.assetTag;
+            offlineAssets[assetTag] = {
+                ...assetData,
+                offline: true,
+                offlineSavedAt: new Date().toISOString()
+            };
+            localStorage.setItem('ctmOfflineAssets', JSON.stringify(offlineAssets));
+        }
+
+        // ==============================================
+        // ASSET TAG FUNCTIONS
+        // ==============================================
+        function generateAssetTag() {
+            const assetTag = document.getElementById('assetTag').value;
+            if (!assetTag) {
+                showToast('Please enter an Asset Tag first', 'error');
+                return;
+            }
+            
+            const assetType = document.getElementById('assetType').value || 'Desktop PC';
+            const serialNumber = document.getElementById('serialNumber').value || 'Not set';
+            
+            const qrContainer = document.getElementById('assetTagQR');
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+                text: assetTag,
+                width: 120,
+                height: 120,
+                colorDark: "#000000",
+                colorLight: "#ffffff"
+            });
+            
+            document.getElementById('previewAssetTag').textContent = assetTag;
+            document.getElementById('previewAssetType').textContent = assetType;
+            document.getElementById('previewSerial').textContent = serialNumber;
+            
+            document.getElementById('assetTagDisplay').style.display = 'block';
+            document.getElementById('assetTagDisplay').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function downloadAssetTag() {
+            const assetTagPreview = document.getElementById('assetTagPreview');
+            
+            html2canvas(assetTagPreview, { 
+                scale: 3, 
+                backgroundColor: '#ffffff',
+                useCORS: true 
+            }).then(canvas => {
+                const link = document.createElement('a');
+                const assetTag = document.getElementById('assetTag').value || 'asset-tag';
+                link.download = `CTM-IT-Asset-Tag-${assetTag}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                showToast('Asset tag downloaded', 'success');
+            });
+        }
+
+        function printAssetTag() {
+            const assetTagPreview = document.getElementById('assetTagPreview');
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Print Asset Tag</title>
+                        <style>
+                            body { 
+                                font-family: Arial, sans-serif; 
+                                padding: 20px;
+                                text-align: center;
+                            }
+                            @media print {
+                                body { margin: 0; padding: 0; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${assetTagPreview.outerHTML}
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                                setTimeout(function() {
+                                    window.close();
+                                }, 1000);
+                            }
+                        <\/script>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+        function saveAssetTagAsJPEG() {
+            downloadAssetTag(); // Same function as download
+        }
+
+        // ==============================================
+        // FORM MANAGEMENT
+        // ==============================================
+        function clearForm() {
+            document.getElementById('assetForm').reset();
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('purchaseDate').value = today;
+            document.getElementById('assetTagDisplay').style.display = 'none';
+            document.getElementById('assetTag').value = '';
+            showDeviceSpecificFields();
+            
+            // Clear license arrays
+            desktopLicenses = [];
+            laptopLicenses = [];
+            serverLicenses = [];
+            
+            // Update license lists
+            updateLicenseList('desktop');
+            updateLicenseList('laptop');
+            updateLicenseList('server');
+            
+            // Reset edit mode
+            isEditMode = false;
+            editAssetTag = '';
+            const submitBtn = document.querySelector('#assetForm button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Save to Firebase';
+            
+            showToast('Form cleared', 'info');
+        }
+
+        function loadAssetForEditing(assetTag) {
+            const asset = findAssetByTag(assetTag);
+            if (!asset) {
+                showToast('Asset not found for editing', 'error');
+                return;
+            }
+            
+            isEditMode = true;
+            editAssetTag = assetTag;
+            
+            // Basic information
+            document.getElementById('assetType').value = asset.assetType || '';
+            document.getElementById('assetTag').value = asset.assetTag || '';
+            document.getElementById('serialNumber').value = asset.serialNumber || '';
+            document.getElementById('brandModel').value = asset.brandModel || '';
+            document.getElementById('purchaseDate').value = asset.purchaseDate || '';
+            document.getElementById('warrantyPeriod').value = asset.warrantyPeriod || '';
+            document.getElementById('location').value = asset.location || '';
+            document.getElementById('previouslyAssignedTo').value = asset.previouslyAssignedTo || '';
+            document.getElementById('assignedTo').value = asset.assignedTo || '';
+            document.getElementById('department').value = asset.department || ''; // Added department
+            document.getElementById('status').value = asset.status || 'Active';
+            
+            // Desktop PC specific
+            if (asset.assetType === 'Desktop PC') {
+                document.getElementById('desktopProcessor').value = asset.desktopProcessor || '';
+                document.getElementById('desktopProcessorSpeed').value = asset.desktopProcessorSpeed || '';
+                document.getElementById('desktopMotherboard').value = asset.desktopMotherboard || '';
+                document.getElementById('desktopRAM').value = asset.desktopRAM || '';
+                document.getElementById('desktopStorageType').value = asset.desktopStorageType || '';
+                document.getElementById('desktopStorageCapacity').value = asset.desktopStorageCapacity || '';
+                document.getElementById('desktopGraphicsCard').value = asset.desktopGraphicsCard || '';
+                document.getElementById('desktopVRAM').value = asset.desktopVRAM || '';
+                document.getElementById('desktopPowerSupply').value = asset.desktopPowerSupply || '';
+                document.getElementById('desktopOpticalDrive').value = asset.desktopOpticalDrive || '';
+                document.getElementById('desktopOperatingSystem').value = asset.desktopOperatingSystem || '';
+                document.getElementById('desktopProductKey').value = asset.desktopProductKey || '';
+                document.getElementById('desktopAdditionalHardware').value = asset.desktopAdditionalHardware || '';
+                
+                // Load desktop licenses
+                desktopLicenses = asset.desktopLicenses || [];
+                updateLicenseList('desktop');
+            }
+            
+            // Laptop PC specific
+            if (asset.assetType === 'Laptop PC') {
+                document.getElementById('laptopProcessor').value = asset.laptopProcessor || '';
+                document.getElementById('laptopProcessorSpeed').value = asset.laptopProcessorSpeed || '';
+                document.getElementById('laptopScreenSize').value = asset.laptopScreenSize || '';
+                document.getElementById('laptopScreenResolution').value = asset.laptopScreenResolution || '';
+                document.getElementById('laptopRAM').value = asset.laptopRAM || '';
+                document.getElementById('laptopStorage').value = asset.laptopStorage || '';
+                document.getElementById('laptopGraphicsCard').value = asset.laptopGraphicsCard || '';
+                document.getElementById('laptopBatteryLife').value = asset.laptopBatteryLife || '';
+                document.getElementById('laptopWeight').value = asset.laptopWeight || '';
+                document.getElementById('laptopWebcam').value = asset.laptopWebcam || '';
+                document.getElementById('laptopOperatingSystem').value = asset.laptopOperatingSystem || '';
+                document.getElementById('laptopProductKey').value = asset.laptopProductKey || '';
+                document.getElementById('laptopPorts').value = asset.laptopPorts || '';
+                
+                // Load laptop licenses
+                laptopLicenses = asset.laptopLicenses || [];
+                updateLicenseList('laptop');
+            }
+            
+            // Server specific
+            if (asset.assetType === 'Server') {
+                document.getElementById('serverProcessor').value = asset.serverProcessor || '';
+                document.getElementById('serverCoresThreads').value = asset.serverCoresThreads || '';
+                document.getElementById('serverRAM').value = asset.serverRAM || '';
+                document.getElementById('serverStorageConfig').value = asset.serverStorageConfig || '';
+                document.getElementById('serverRackSize').value = asset.serverRackSize || '';
+                document.getElementById('serverRAID').value = asset.serverRAID || '';
+                document.getElementById('serverNetworkPorts').value = asset.serverNetworkPorts || '';
+                document.getElementById('serverPowerSupply').value = asset.serverPowerSupply || '';
+                document.getElementById('serverRemoteManagement').value = asset.serverRemoteManagement || '';
+                document.getElementById('serverHotSwap').value = asset.serverHotSwap || '';
+                document.getElementById('serverOperatingSystem').value = asset.serverOperatingSystem || '';
+                document.getElementById('serverRole').value = asset.serverRole || '';
+                document.getElementById('serverAdditionalComponents').value = asset.serverAdditionalComponents || '';
+                
+                // Load server licenses
+                serverLicenses = asset.serverLicenses || [];
+                updateLicenseList('server');
+            }
+            
+            // Additional information
+            document.getElementById('purchasePrice').value = asset.purchasePrice || '';
+            document.getElementById('supplier').value = asset.supplier || '';
+            document.getElementById('invoiceNumber').value = asset.invoiceNumber || '';
+            document.getElementById('gpsLocation').value = asset.gpsLocation || '';
+            document.getElementById('maintenanceHistory').value = asset.maintenanceHistory || '';
+            document.getElementById('remarks').value = asset.remarks || '';
+            
+            showDeviceSpecificFields();
+            
+            const submitBtn = document.querySelector('#assetForm button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Update Asset';
+            
+            showToast(`Editing asset: ${assetTag}`, 'info');
+            document.getElementById('assetTagDisplay').style.display = 'none';
+        }
+
+        // ==============================================
+        // SCAN LOGGING FUNCTIONS
+        // ==============================================
+        async function logScanActivity(assetTag, action, details = {}) {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                const offlineLogs = JSON.parse(localStorage.getItem('ctmScanLogs') || '[]');
+                offlineLogs.push({
+                    assetTag: assetTag,
+                    action: action,
+                    details: details,
+                    timestamp: new Date().toISOString(),
+                    offline: true
+                });
+                localStorage.setItem('ctmScanLogs', JSON.stringify(offlineLogs));
+                return;
+            }
+
+            try {
+                const logEntry = {
+                    assetTag: assetTag,
+                    action: action,
+                    details: details,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    scannedBy: 'System User',
+                    deviceInfo: navigator.userAgent
+                };
+
+                await logsRef.push(logEntry);
+            } catch (error) {
+                console.error('Failed to log scan activity:', error);
+            }
+        }
+
+        // ==============================================
+        // UTILITY FUNCTIONS
+        // ==============================================
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+                </div>
+                <div style="flex: 1;">
+                    <strong>${message}</strong>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode === toastContainer) {
+                        toastContainer.removeChild(toast);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // ==============================================
+        // INITIALIZATION
+        // ==============================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Initialize Firebase immediately
+            const firebaseInitialized = initializeFirebase();
+            
+            // Set up mobile navigation
+            setupMobileNavigation();
+            
+            // Setup form submission
+            document.getElementById('assetForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveAsset();
+            });
+            
+            // Set today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('purchaseDate').value = today;
+            
+            // Check URL parameters for edit or generate
+            const urlParams = new URLSearchParams(window.location.search);
+            const editAsset = urlParams.get('edit');
+            const generateAsset = urlParams.get('generate');
+            
+            if (editAsset) {
+                loadAssetForEditing(editAsset);
+            }
+            
+            if (generateAsset) {
+                // Load asset and generate QR
+                const asset = findAssetByTag(generateAsset);
+                if (asset) {
+                    loadAssetForEditing(generateAsset);
+                    setTimeout(() => {
+                        generateAssetTag();
+                    }, 500);
+                }
+            }
+            
+            // Load assets from local storage
+            const backup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+            assetsDB = backup;
+            
+            // Initialize license lists
+            updateLicenseList('desktop');
+            updateLicenseList('laptop');
+            updateLicenseList('server');
+        });
+
+        // Make functions globally available
+        window.setDeviceType = setDeviceType;
+        window.generateAssetTag = generateAssetTag;
+        window.downloadAssetTag = downloadAssetTag;
+        window.printAssetTag = printAssetTag;
+        window.saveAssetTagAsJPEG = saveAssetTagAsJPEG;
+        window.clearForm = clearForm;
+        window.loadAssetForEditing = loadAssetForEditing;
+        window.addLicenseEntry = addLicenseEntry;
+        window.saveLicenseEntry = saveLicenseEntry;
+        window.toggleLicenseKey = toggleLicenseKey;
+        window.toggleKeyVisibility = toggleKeyVisibility;
+        window.removeLicense = removeLicense;
+        
+    </script>
+</body>
+</html>

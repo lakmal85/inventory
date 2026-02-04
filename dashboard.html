@@ -1,0 +1,3056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CTM IT Department - Asset Management Dashboard</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- Chart.js for Statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --success-green: #10b981;
+            --warning-yellow: #fbbf24;
+            --danger-red: #ef4444;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --gradient-primary: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            --gradient-danger: linear-gradient(135deg, var(--danger-red), #dc2626);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--dark-gray);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Animated Background Elements */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .bg-circle {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.05), rgba(16, 185, 129, 0.05));
+            animation: float 20s infinite linear;
+        }
+
+        .bg-circle:nth-child(1) {
+            width: 300px;
+            height: 300px;
+            top: -150px;
+            right: -150px;
+            animation-delay: 0s;
+        }
+
+        .bg-circle:nth-child(2) {
+            width: 200px;
+            height: 200px;
+            bottom: -100px;
+            left: -100px;
+            animation-delay: -10s;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(16, 185, 129, 0.05));
+        }
+
+        .bg-circle:nth-child(3) {
+            width: 150px;
+            height: 150px;
+            top: 50%;
+            left: 10%;
+            animation-delay: -5s;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.03), rgba(30, 58, 138, 0.03));
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            25% {
+                transform: translate(20px, -20px) rotate(90deg);
+            }
+            50% {
+                transform: translate(0, 0) rotate(180deg);
+            }
+            75% {
+                transform: translate(-20px, 20px) rotate(270deg);
+            }
+        }
+
+        /* Firebase Status Indicator - Performance Metrics ඇතුළත */
+        .firebase-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .firebase-connected {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border: 2px solid #10b981;
+        }
+
+        .firebase-disconnected {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: 2px solid #ef4444;
+        }
+
+        .firebase-syncing {
+            background: rgba(59, 130, 246, 0.95);
+            color: white;
+            border: 2px solid #3b82f6;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Preloader */
+        .preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--white);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .preloader.hidden {
+            opacity: 0;
+            transform: translateY(-20px);
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 3px solid var(--light-gray);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .loader::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 3px solid transparent;
+            border-top: 3px solid var(--success-green);
+            border-radius: 50%;
+            animation: spin 2s linear infinite reverse;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .preloader-text {
+            text-align: center;
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            line-height: 1.5;
+        }
+
+        .preloader-dots {
+            display: flex;
+            gap: 4px;
+            margin-top: 1rem;
+        }
+
+        .preloader-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary-blue);
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .preloader-dot:nth-child(1) { animation-delay: -0.32s; }
+        .preloader-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* Header - ORIGINAL STYLES */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: var(--shadow);
+            padding: 0.8rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--primary-blue);
+            flex-shrink: 0;
+            backdrop-filter: blur(10px);
+            animation: slideInDown 0.6s ease;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: fadeInLeft 0.6s ease;
+            flex: 1;
+            min-width: 0;
+        }
+
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .logo {
+            width: 45px;
+            height: 45px;
+            background: var(--gradient-primary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            animation: logoPulse 3s infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .logo-text {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+
+        .company-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        .department-name {
+            font-size: 0.7rem;
+            color: var(--success-green);
+            font-weight: 600;
+            position: relative;
+            display: inline-block;
+            padding-right: 0;
+        }
+
+        /* User Info and Logout Button */
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            animation: fadeInRight 0.6s ease;
+            flex-shrink: 0;
+        }
+
+        @keyframes fadeInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .user-avatar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.3));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .user-avatar:hover::after {
+            opacity: 1;
+        }
+
+        .user-avatar:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .logout-btn {
+            background: var(--gradient-danger);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .logout-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        .logout-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .logout-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Navigation */
+        .nav-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .nav-scroll-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            background: white;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            z-index: 10;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+            border: 1px solid #e5e7eb;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .nav-scroll-btn.left {
+            left: 5px;
+        }
+
+        .nav-scroll-btn.right {
+            right: 5px;
+        }
+
+        .nav-scroll-btn i {
+            font-size: 12px;
+            color: var(--primary-blue);
+        }
+
+        .mobile-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 0.5rem 0;
+            gap: 0.5rem;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .mobile-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 0 0 auto;
+            padding: 0.6rem 1rem;
+            background: var(--light-gray);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--medium-gray);
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            cursor: pointer;
+            min-width: fit-content;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-tab::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .nav-tab:hover::before {
+            left: 100%;
+        }
+
+        .nav-tab:hover {
+            background: #e5e7eb;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .nav-tab.active {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+            animation: tabPulse 2s infinite;
+        }
+
+        @keyframes tabPulse {
+            0%, 100% { box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3); }
+            50% { box-shadow: 0 4px 20px rgba(30, 58, 138, 0.5); }
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1rem;
+            max-width: 100%;
+            flex: 1;
+            min-height: 0;
+            animation: fadeIn 0.8s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            min-height: 0;
+        }
+
+        @media (min-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        /* Page Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 2rem 1rem;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.98));
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-blue);
+            grid-column: 1 / -1;
+            position: relative;
+            overflow: hidden;
+            animation: slideInUp 0.6s ease;
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+            animation: progressBar 3s ease-in-out infinite;
+        }
+
+        @keyframes progressBar {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--dark-gray);
+            position: relative;
+            display: inline-block;
+        }
+
+        .page-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: var(--gradient-primary);
+            border-radius: 2px;
+        }
+
+        .page-subtitle {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            line-height: 1.4;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Card Styles */
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            border-left: 4px solid var(--success-green);
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: cardSlideUp 0.6s ease;
+            animation-fill-mode: both;
+        }
+
+        .card:nth-child(1) { animation-delay: 0.1s; }
+        .card:nth-child(2) { animation-delay: 0.2s; }
+        .card:nth-child(3) { animation-delay: 0.3s; }
+        .card:nth-child(4) { animation-delay: 0.4s; }
+        .card:nth-child(5) { animation-delay: 0.5s; }
+        .card:nth-child(6) { animation-delay: 0.6s; }
+
+        @keyframes cardSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover .card-icon {
+            transform: rotate(15deg) scale(1.1);
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--dark-gray);
+        }
+
+        /* Real-time Badge */
+        .realtime-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--gradient-primary);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .realtime-badge:hover {
+            transform: scale(1.05);
+        }
+
+        /* Dashboard Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 1.25rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: statSlideIn 0.6s ease;
+            animation-fill-mode: both;
+        }
+
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; }
+        .stat-card:nth-child(5) { animation-delay: 0.5s; }
+        .stat-card:nth-child(6) { animation-delay: 0.6s; }
+        .stat-card:nth-child(7) { animation-delay: 0.7s; }
+        .stat-card:nth-child(8) { animation-delay: 0.8s; }
+
+        @keyframes statSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--secondary-blue);
+            background: white;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin: 0 auto 0.75rem;
+            font-size: 18px;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover .stat-icon {
+            transform: rotate(360deg);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-blue);
+            margin-bottom: 0.25rem;
+            font-feature-settings: "tnum";
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover .stat-value {
+            color: var(--success-green);
+            transform: scale(1.1);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover .stat-label {
+            color: var(--dark-gray);
+        }
+
+        /* Charts Container */
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .charts-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .chart-card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .chart-card:hover {
+            border-color: var(--secondary-blue);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 250px;
+            position: relative;
+        }
+
+        /* Quick Actions Grid */
+        .actions-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            position: relative;
+            overflow: visible !important;
+        }
+
+        @media (max-width: 767px) {
+            .actions-grid {
+                grid-template-columns: 1fr;
+                grid-auto-rows: auto;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .actions-grid {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(3, minmax(100px, auto));
+                min-height: 400px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .actions-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(6, minmax(80px, auto));
+                min-height: 500px;
+            }
+        }
+
+        .action-btn {
+            padding: 1.25rem;
+            background: var(--white);
+            border: 2px solid var(--light-gray);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            min-height: 100px;
+            position: relative;
+            overflow: hidden;
+            animation: actionSlideIn 0.6s ease;
+            animation-fill-mode: both;
+        }
+
+        .action-btn:nth-child(1) { animation-delay: 0.1s; }
+        .action-btn:nth-child(2) { animation-delay: 0.2s; }
+        .action-btn:nth-child(3) { animation-delay: 0.3s; }
+        .action-btn:nth-child(4) { animation-delay: 0.4s; }
+        .action-btn:nth-child(5) { animation-delay: 0.5s; }
+        .action-btn:nth-child(6) { animation-delay: 0.6s; }
+
+        @keyframes actionSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .action-btn:hover {
+            border-color: var(--secondary-blue);
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .action-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        .action-btn:hover::after {
+            width: 200px;
+            height: 200px;
+        }
+
+        .action-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+            z-index: 1;
+        }
+
+        .action-btn:hover .action-icon {
+            transform: rotate(15deg) scale(1.1);
+            box-shadow: 0 6px 16px rgba(30, 58, 138, 0.4);
+        }
+
+        .action-text {
+            font-weight: 600;
+            color: var(--dark-gray);
+            font-size: 0.9rem;
+            text-align: center;
+            line-height: 1.3;
+            z-index: 1;
+        }
+
+        /* Recent Activities */
+        .activities-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            border-left: 4px solid var(--success-green);
+            transition: all 0.3s ease;
+            animation: slideInRight 0.6s ease;
+            animation-fill-mode: both;
+        }
+
+        .activity-item:nth-child(1) { animation-delay: 0.1s; }
+        .activity-item:nth-child(2) { animation-delay: 0.2s; }
+        .activity-item:nth-child(3) { animation-delay: 0.3s; }
+        .activity-item:nth-child(4) { animation-delay: 0.4s; }
+        .activity-item:nth-child(5) { animation-delay: 0.5s; }
+
+        .activity-item:hover {
+            transform: translateX(5px);
+            background: white;
+            box-shadow: var(--shadow);
+        }
+
+        .activity-icon {
+            width: 36px;
+            height: 36px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-time {
+            font-size: 0.75rem;
+            color: var(--medium-gray);
+        }
+
+        /* System Status */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .status-item {
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+
+        .status-item:hover {
+            border-color: var(--secondary-blue);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .status-label {
+            font-size: 0.75rem;
+            color: var(--medium-gray);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-value {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .status-value.connected {
+            color: var(--success-green);
+        }
+
+        .status-value.disconnected {
+            color: var(--danger-red);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--white);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+            animation: toastSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-left: 4px solid var(--success-green);
+            max-width: 400px;
+            width: 100%;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes toastSlideIn {
+            from { 
+                transform: translateX(100%) scale(0.9);
+                opacity: 0;
+            }
+            to { 
+                transform: translateX(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .toast-message {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--medium-gray);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .toast-close:hover {
+            background: var(--light-gray);
+            color: var(--dark-gray);
+        }
+
+        .toast-success { border-left-color: var(--success-green); }
+        .toast-error { border-left-color: var(--danger-red); }
+        .toast-warning { border-left-color: var(--warning-yellow); }
+        .toast-info { border-left-color: var(--secondary-blue); }
+
+        .toast-success .toast-icon { color: var(--success-green); }
+        .toast-error .toast-icon { color: var(--danger-red); }
+        .toast-warning .toast-icon { color: var(--warning-yellow); }
+        .toast-info .toast-icon { color: var(--secondary-blue); }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            text-align: center;
+            color: var(--medium-gray);
+            flex: 1;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+            animation: bounce 2s infinite;
+        }
+
+        /* Footer */
+        .footer {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1.5rem 1rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            flex-shrink: 0;
+            margin-top: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .copyright {
+            color: var(--medium-gray);
+            font-size: 0.75rem;
+        }
+
+        /* Content column layouts */
+        .left-column, .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .right-column .card {
+            flex: 1;
+            overflow: visible !important;
+        }
+
+        .card:has(.activities-list) {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Logout Confirmation Modal */
+        .logout-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .logout-modal.active {
+            display: flex;
+        }
+
+        .logout-modal-content {
+            background: var(--white);
+            border-radius: 20px;
+            padding: 2.5rem;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: var(--shadow-lg);
+            animation: modalSlideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        @keyframes modalSlideUp {
+            from { 
+                transform: translateY(40px) scale(0.95);
+                opacity: 0;
+            }
+            to { 
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .logout-modal-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logout-modal-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--gradient-danger);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .logout-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark-gray);
+            margin-bottom: 0.5rem;
+        }
+
+        .logout-modal-message {
+            color: var(--medium-gray);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .logout-modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .logout-modal-btn {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logout-modal-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        .logout-modal-btn:hover::before {
+            width: 200px;
+            height: 200px;
+        }
+
+        .logout-modal-btn.cancel {
+            background: var(--light-gray);
+            color: var(--dark-gray);
+        }
+
+        .logout-modal-btn.cancel:hover {
+            background: #e5e7eb;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .logout-modal-btn.confirm {
+            background: var(--gradient-danger);
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .logout-modal-btn.confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .header {
+                padding: 1rem 2rem;
+            }
+
+            .header-top {
+                margin-bottom: 0.75rem;
+            }
+
+            .logo {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+
+            .company-name {
+                font-size: 1.4rem;
+            }
+
+            .department-name {
+                font-size: 0.8rem;
+            }
+
+            .user-avatar {
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+
+            .logout-btn {
+                padding: 0.7rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .mobile-nav {
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .nav-tab {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .main-container {
+                padding: 2rem;
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            .page-title {
+                font-size: 2rem;
+            }
+
+            .page-subtitle {
+                font-size: 1rem;
+            }
+
+            .card {
+                padding: 1.75rem;
+            }
+
+            .stats-grid {
+                gap: 1rem;
+            }
+
+            .stat-card {
+                padding: 1.5rem;
+            }
+
+            .stat-value {
+                font-size: 1.75rem;
+            }
+
+            .chart-container {
+                height: 280px;
+            }
+
+            .toast-container {
+                right: 20px;
+                left: auto;
+                max-width: 350px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-nav {
+                gap: 2rem;
+            }
+            
+            .dashboard-grid {
+                min-height: calc(100vh - 200px);
+            }
+        }
+
+        @media (max-width: 767px) {
+            .user-info {
+                gap: 10px;
+            }
+            
+            .user-avatar {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+            
+            .logout-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+            
+            .logout-btn span {
+                display: none;
+            }
+            
+            .logout-btn i {
+                margin: 0;
+            }
+            
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .stat-value {
+                font-size: 1.25rem;
+            }
+            
+            .action-btn {
+                padding: 1rem;
+                min-height: 90px;
+            }
+            
+            .chart-container {
+                height: 220px;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--light-gray);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, var(--secondary-blue), var(--success-green));
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Selection color */
+        ::selection {
+            background: rgba(59, 130, 246, 0.3);
+            color: var(--dark-gray);
+        }
+
+        /* Focus outlines */
+        *:focus {
+            outline: 2px solid var(--secondary-blue);
+            outline-offset: 2px;
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--secondary-blue);
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animation">
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+    </div>
+
+    <!-- Preloader -->
+    <div class="preloader" id="preloader">
+        <div class="loader"></div>
+        <div class="preloader-text">
+            <div>Initializing Asset Management System...</div>
+            <div style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--medium-gray);">
+                Loading Dashboard Components
+            </div>
+        </div>		
+        <div class="preloader-dots">
+            <div class="preloader-dot"></div>
+            <div class="preloader-dot"></div>
+            <div class="preloader-dot"></div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="logout-modal" id="logoutModal">
+        <div class="logout-modal-content">
+            <div class="logout-modal-header">
+                <div class="logout-modal-icon">
+                    <i class="fas fa-sign-out-alt"></i>
+                </div>
+                <h3 class="logout-modal-title">Confirm Logout</h3>
+                <p class="logout-modal-message">Are you sure you want to logout from the Asset Management System?</p>
+            </div>
+            <div class="logout-modal-actions">
+                <button class="logout-modal-btn cancel" id="cancelLogout">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </button>
+                <button class="logout-modal-btn confirm" id="confirmLogout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-top">
+            <div class="logo-container">
+                <div class="logo">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <div class="logo-text">
+                    <div class="company-name">CTM IT Department</div>
+                    <div class="department-name">Enterprise Asset Management System</div>
+                </div>
+            </div>
+
+            <!-- User Info and Logout Button -->
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <button class="logout-btn" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <button class="nav-tab" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='scanqr.html'">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='addasset.html'">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Asset</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventory.html'">
+                <i class="fas fa-boxes-stacked"></i>
+                <span>Inventory</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='firebase.html'">
+                <i class="fas fa-database"></i>
+                <span>Firebase</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='fullreport.html'">
+                <i class="fas fa-file-alt"></i>
+                <span>Full Report</span>
+            </button>
+            <button class="nav-tab active" onclick="window.location.href='inventorymap.html'">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Inventory Map</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <div class="dashboard-grid">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 class="page-title">Asset Management Dashboard</h1>
+                <p class="page-subtitle">Real-time monitoring and analytics for CTM IT Department assets</p>
+            </div>
+
+            <!-- Left Column: Main Content -->
+            <div class="left-column">
+                <!-- Live Statistics Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div>
+                                <h2 class="card-title">Performance Metrics</h2>
+                                <div class="realtime-badge" onclick="refreshDashboardData()">
+                                    <i class="fas fa-sync-alt fa-spin"></i>
+                                    <span>LIVE DATA</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--medium-gray);">
+                            <i class="fas fa-clock"></i> Updated: <span id="lastUpdateTime">Just now</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div class="firebase-status firebase-disconnected" id="firebaseStatus">
+                            <i class="fas fa-plug"></i>
+                            <span>Connecting to Firebase...</span>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--medium-gray);">
+                            <i class="fas fa-database"></i> Database Status
+                        </div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-server"></i>
+                            </div>
+                            <div class="stat-value" id="totalAssetsFirebase">0</div>
+                            <div class="stat-label">Total Assets</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-check-double"></i>
+                            </div>
+                            <div class="stat-value" id="activeAssetsFirebase">0</div>
+                            <div class="stat-label">Active Assets</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-desktop"></i>
+                            </div>
+                            <div class="stat-value" id="desktopsCount">0</div>
+                            <div class="stat-label">Desktop PCs</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-laptop"></i>
+                            </div>
+                            <div class="stat-value" id="laptopsCount">0</div>
+                            <div class="stat-label">Laptop PCs</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-print"></i>
+                            </div>
+                            <div class="stat-value" id="printersCount">0</div>
+                            <div class="stat-label">Printers</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-mobile-alt"></i>
+                            </div>
+                            <div class="stat-value" id="mobilesCount">0</div>
+                            <div class="stat-label">Mobile Phones</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                            <div class="stat-value" id="networkCount">0</div>
+                            <div class="stat-label">Network Devices</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="stat-value" id="totalValue">LKR 0</div>
+                            <div class="stat-label">Total Value</div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-container">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <i class="fas fa-chart-bar"></i>
+                                    Asset Distribution
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--medium-gray);">
+                                    By Category
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="assetBarChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <i class="fas fa-chart-pie"></i>
+                                    Status Overview
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--medium-gray);">
+                                    By Status
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="assetPieChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activities -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <i class="fas fa-history"></i>
+                            </div>
+                            <h2 class="card-title">Recent Activities</h2>
+                        </div>
+                        <button class="realtime-badge" onclick="refreshActivities()" style="cursor: pointer; padding: 6px 12px;">
+                            <i class="fas fa-redo"></i>
+                            <span>REFRESH</span>
+                        </button>
+                    </div>
+                    <div id="recentActivities" class="activities-list">
+                        <div class="empty-state">
+                            <i class="fas fa-spinner fa-spin empty-state-icon"></i>
+                            <p>Loading activity log...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Sidebar -->
+            <div class="right-column">
+                <!-- Quick Actions -->
+                <div class="card" style="overflow: visible;">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <h2 class="card-title">Quick Actions</h2>
+                        </div>
+                    </div>
+                    <div class="actions-grid">
+                        <div class="action-btn" onclick="window.location.href='scanqr.html'">
+                            <div class="action-icon">
+                                <i class="fas fa-qrcode"></i>
+                            </div>
+                            <div class="action-text">Scan Asset QR</div>
+                        </div>
+                        <div class="action-btn" onclick="window.location.href='addasset.html'">
+                            <div class="action-icon">
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="action-text">Register New Asset</div>
+                        </div>
+                        <div class="action-btn" onclick="window.location.href='inventory.html'">
+                            <div class="action-icon">
+                                <i class="fas fa-boxes-stacked"></i>
+                            </div>
+                            <div class="action-text">View Inventory</div>
+                        </div>
+                        <div class="action-btn" onclick="syncOfflineData()">
+                            <div class="action-icon">
+                                <i class="fas fa-sync-alt"></i>
+                            </div>
+                            <div class="action-text">Sync Database</div>
+                        </div>
+                        <div class="action-btn" onclick="window.location.href='fullreport.html'">
+                            <div class="action-icon">
+                                <i class="fas fa-file-chart-line"></i>
+                            </div>
+                            <div class="action-text">Generate Report</div>
+                        </div>
+                        <div class="action-btn" onclick="window.location.href='inventorymap.html'">
+                            <div class="action-icon">
+                                <i class="fas fa-map-location-dot"></i>
+                            </div>
+                            <div class="action-text">View Asset Map</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                            <h2 class="card-title">System Status</h2>
+                        </div>
+                    </div>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-label">Database</div>
+                            <div id="connectionStatus" class="status-value disconnected">Disconnected</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Last Sync</div>
+                            <div id="lastSyncTime" class="status-value">Never</div>
+                        </div>
+                        <div class="status-item" style="grid-column: span 2;">
+                            <div class="status-label">Database URL</div>
+                            <div id="databaseUrl" class="status-value" style="font-size: 0.75rem; word-break: break-all;">
+                                https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Project ID</div>
+                            <div id="projectId" class="status-value" style="font-size: 0.75rem;">
+                                student-management-syste-d39a3
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label">Assets Loaded</div>
+                            <div id="assetsLoaded" class="status-value">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Asset Summary -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <i class="fas fa-list-check"></i>
+                            </div>
+                            <h2 class="card-title">Asset Summary</h2>
+                        </div>
+                    </div>
+                    <div id="assetSummary" style="padding: 1rem 0; color: var(--medium-gray); font-size: 0.9rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Desktop PCs:</span>
+                            <span id="desktopCount" style="font-weight: 600;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Laptop PCs:</span>
+                            <span id="laptopCount" style="font-weight: 600;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Printers:</span>
+                            <span id="printerCount" style="font-weight: 600;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Mobile Phones:</span>
+                            <span id="mobileCount" style="font-weight: 600;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Network Devices:</span>
+                            <span id="networkDeviceCount" style="font-weight: 600;">0</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--light-gray);">
+                            <span style="font-weight: 600;">Total Assets:</span>
+                            <span id="totalAssetsCount" style="font-weight: 600; color: var(--primary-blue);">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">CTM IT Department - Enterprise Asset Management System</div>
+            <div class="copyright">
+                &copy; 2024 Enterprise Asset Management System v2.1 | Powered by CTM IT Department
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==============================================
+        // FIREBASE CONFIGURATION
+        // ==============================================
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyABuZWbNXGJ359mbctDsX-SSxwkUd3v1KY",
+            authDomain: "student-management-syste-d39a3.firebaseapp.com",
+            databaseURL: "https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "student-management-syste-d39a3",
+            storageBucket: "student-management-syste-d39a3.firebasestorage.app",
+            messagingSenderId: "36925529487",
+            appId: "1:36925529487:web:385e1af7ba174f8440fffa"
+        };
+
+        // ==============================================
+        // GLOBAL VARIABLES
+        // ==============================================
+        let firebaseApp;
+        let auth;
+        let database;
+        let isFirebaseInitialized = false;
+        let databaseRef;
+        let assetsRef;
+        let connectionRef;
+        
+        // Chart instances
+        let barChart = null;
+        let pieChart = null;
+        
+        // Data storage
+        let assetsDB = {};
+        let firebaseConnected = false;
+        let lastSyncTime = null;
+        let currentUser = null;
+
+        // ==============================================
+        // ENHANCED LOGOUT FUNCTIONALITY
+        // ==============================================
+        function setupLogoutButton() {
+            const logoutBtn = document.getElementById('logoutBtn');
+            const logoutModal = document.getElementById('logoutModal');
+            const cancelLogout = document.getElementById('cancelLogout');
+            const confirmLogout = document.getElementById('confirmLogout');
+            
+            // Open logout confirmation modal
+            logoutBtn.addEventListener('click', function() {
+                logoutModal.classList.add('active');
+            });
+            
+            // Close modal on cancel
+            cancelLogout.addEventListener('click', function() {
+                logoutModal.classList.remove('active');
+            });
+            
+            // Confirm logout
+            confirmLogout.addEventListener('click', async function() {
+                await performLogout();
+            });
+            
+            // Close modal when clicking outside
+            logoutModal.addEventListener('click', function(e) {
+                if (e.target === logoutModal) {
+                    logoutModal.classList.remove('active');
+                }
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && logoutModal.classList.contains('active')) {
+                    logoutModal.classList.remove('active');
+                }
+            });
+        }
+        
+        async function performLogout() {
+            try {
+                const logoutModal = document.getElementById('logoutModal');
+                logoutModal.classList.remove('active');
+                
+                // Show loading state
+                showToast('Logging Out', 'Please wait while we sign you out...', 'info');
+                
+                if (auth && auth.currentUser) {
+                    await auth.signOut();
+                }
+                
+                // Clear all local storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear assets backup to ensure fresh login
+                localStorage.removeItem('ctmAssetsBackup');
+                localStorage.removeItem('ctmRememberEmail');
+                localStorage.removeItem('ctmRememberMe');
+                
+                // Show success message with animation
+                showToast('Successfully Logged Out', 'You have been signed out securely', 'success');
+                
+                // Redirect to login page with fade animation
+                setTimeout(() => {
+                    // Add fade out effect to body
+                    document.body.style.opacity = '0';
+                    document.body.style.transition = 'opacity 0.5s ease';
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 500);
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('Logout Failed', 'Unable to sign out. Please try again.', 'error');
+            }
+        }
+        
+        function updateUserInfo(user) {
+            currentUser = user;
+            const userAvatar = document.getElementById('userAvatar');
+            
+            if (user) {
+                // Update avatar with user's first letter or icon
+                if (user.displayName) {
+                    const firstLetter = user.displayName.charAt(0).toUpperCase();
+                    userAvatar.innerHTML = firstLetter;
+                } else if (user.email) {
+                    const firstLetter = user.email.charAt(0).toUpperCase();
+                    userAvatar.innerHTML = firstLetter;
+                } else {
+                    userAvatar.innerHTML = '<i class="fas fa-user"></i>';
+                }
+                
+                // Add user email to avatar tooltip
+                userAvatar.title = user.email || 'User';
+            }
+        }
+
+        // ==============================================
+        // NAVIGATION SCROLL MANAGEMENT
+        // ==============================================
+        function setupNavigationScroll() {
+            const nav = document.getElementById('mobileNav');
+            const scrollLeftBtn = document.getElementById('navScrollLeft');
+            const scrollRightBtn = document.getElementById('navScrollRight');
+            
+            function updateScrollButtons() {
+                if (nav.scrollWidth > nav.clientWidth) {
+                    scrollLeftBtn.style.display = nav.scrollLeft > 0 ? 'flex' : 'none';
+                    scrollRightBtn.style.display = 
+                        nav.scrollLeft < (nav.scrollWidth - nav.clientWidth) ? 'flex' : 'none';
+                } else {
+                    scrollLeftBtn.style.display = 'none';
+                    scrollRightBtn.style.display = 'none';
+                }
+            }
+            
+            scrollLeftBtn.addEventListener('click', () => {
+                nav.scrollBy({ left: -200, behavior: 'smooth' });
+            });
+            
+            scrollRightBtn.addEventListener('click', () => {
+                nav.scrollBy({ left: 200, behavior: 'smooth' });
+            });
+            
+            nav.addEventListener('scroll', updateScrollButtons);
+            
+            // Initial check
+            setTimeout(updateScrollButtons, 100);
+            window.addEventListener('resize', updateScrollButtons);
+        }
+
+        // ==============================================
+        // FIREBASE INITIALIZATION WITH AUTH
+        // ==============================================
+        function initializeFirebase() {
+            try {
+                console.log('Initializing Firebase with Authentication...');
+                
+                // Show initial status
+                updateFirebaseStatus('syncing');
+                document.getElementById('connectionStatus').textContent = 'Initializing...';
+                document.getElementById('connectionStatus').className = 'status-value';
+                
+                // Check if Firebase app is already initialized
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                    console.log('Firebase app initialized');
+                } else {
+                    firebaseApp = firebase.app();
+                    console.log('Using existing Firebase app');
+                }
+                
+                // Get database and auth instances
+                database = firebase.database();
+                auth = firebase.auth();
+                isFirebaseInitialized = true;
+                
+                // Set database references
+                databaseRef = database.ref();
+                assetsRef = database.ref('assets');
+                connectionRef = database.ref('.info/connected');
+                
+                console.log('Firebase initialized successfully');
+                
+                // Update UI with configuration info
+                document.getElementById('projectId').textContent = firebaseConfig.projectId || 'student-management-syste-d39a3';
+                document.getElementById('databaseUrl').textContent = firebaseConfig.databaseURL || 'Not connected';
+                
+                // Check authentication state
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        // User is signed in
+                        updateUserInfo(user);
+                        
+                        // Check if email is verified
+                        if (!user.emailVerified) {
+                            showToast('Email Not Verified', 'Please verify your email address for full access', 'warning', 5000);
+                        }
+                        
+                        showToast('Welcome Back', `Signed in as ${user.displayName || user.email}`, 'success', 3000);
+                    } else {
+                        // User is not signed in, redirect to login
+                        showToast('Authentication Required', 'Please login to continue', 'warning');
+                        
+                        setTimeout(() => {
+                            // Clear any cached data
+                            localStorage.removeItem('ctmAssetsBackup');
+                            sessionStorage.clear();
+                            
+                            // Redirect to login
+                            window.location.href = 'index.html';
+                        }, 2000);
+                    }
+                });
+                
+                // Set up connection status listener
+                connectionRef.on('value', (snapshot) => {
+                    firebaseConnected = snapshot.val();
+                    console.log('Firebase connection status:', firebaseConnected);
+                    
+                    if (firebaseConnected) {
+                        updateConnectionStatus(true);
+                        updateFirebaseStatus('connected');
+                        showToast('Connected to Firebase Realtime Database', 'Connected successfully', 'success');
+                        
+                        // Force data refresh on connection
+                        setTimeout(() => {
+                            setupRealtimeListeners();
+                            refreshDashboardData();
+                        }, 1000);
+                    } else {
+                        updateConnectionStatus(false);
+                        updateFirebaseStatus('disconnected');
+                        showToast('Disconnected from Firebase', 'Working in offline mode', 'warning');
+                        
+                        // Load from local backup
+                        loadLocalBackup();
+                    }
+                }, (error) => {
+                    console.error('Connection listener error:', error);
+                    updateConnectionStatus(false);
+                    updateFirebaseStatus('disconnected');
+                    showToast('Connection error', 'Working in offline mode', 'error');
+                    loadLocalBackup();
+                });
+                
+                // Set up initial data listeners
+                setupRealtimeListeners();
+                
+                // Hide preloader with animation
+                setTimeout(() => {
+                    const preloader = document.getElementById('preloader');
+                    if (preloader) {
+                        preloader.classList.add('hidden');
+                        setTimeout(() => {
+                            preloader.style.display = 'none';
+                        }, 500);
+                    }
+                }, 1500);
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showToast('Firebase Initialization Failed', error.message, 'error');
+                updateConnectionStatus(false);
+                updateFirebaseStatus('disconnected');
+                
+                // Hide preloader even if Firebase fails
+                setTimeout(() => {
+                    const preloader = document.getElementById('preloader');
+                    if (preloader) {
+                        preloader.classList.add('hidden');
+                        setTimeout(() => {
+                            preloader.style.display = 'none';
+                        }, 500);
+                    }
+                    
+                    // Load from local backup
+                    loadLocalBackup();
+                    showToast('Offline Mode', 'Loaded data from local backup', 'info');
+                }, 2000);
+                
+                return false;
+            }
+        }
+
+        // ==============================================
+        // CONNECTION STATUS MANAGEMENT
+        // ==============================================
+        function updateConnectionStatus(connected) {
+            const element = document.getElementById('connectionStatus');
+            
+            if (connected) {
+                element.textContent = 'Connected';
+                element.className = 'status-value connected';
+            } else {
+                element.textContent = 'Disconnected';
+                element.className = 'status-value disconnected';
+            }
+        }
+
+        function updateFirebaseStatus(status) {
+            const statusElement = document.getElementById('firebaseStatus');
+            switch(status) {
+                case 'connected':
+                    statusElement.className = 'firebase-status firebase-connected';
+                    statusElement.innerHTML = '<i class="fas fa-check-circle"></i><span>Connected to Firebase</span>';
+                    break;
+                case 'disconnected':
+                    statusElement.className = 'firebase-status firebase-disconnected';
+                    statusElement.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Disconnected from Firebase</span>';
+                    break;
+                case 'syncing':
+                    statusElement.className = 'firebase-status firebase-syncing';
+                    statusElement.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i><span>Syncing with Firebase...</span>';
+                    break;
+            }
+        }
+
+        // ==============================================
+        // DATA LOADING FUNCTIONS
+        // ==============================================
+        function loadLocalBackup() {
+            try {
+                const backup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+                assetsDB = backup;
+                console.log('Loaded local backup:', Object.keys(assetsDB).length, 'assets');
+                
+                updateStatistics();
+                updateAssetCharts();
+                updateAssetSummary();
+                
+                document.getElementById('assetsLoaded').textContent = Object.keys(assetsDB).length;
+                
+            } catch (error) {
+                console.error('Error loading local backup:', error);
+                showToast('Error loading local data', 'Failed to load local backup', 'error');
+            }
+        }
+
+        function setupRealtimeListeners() {
+            if (!isFirebaseInitialized) {
+                console.warn('Firebase not initialized, skipping realtime listeners');
+                return;
+            }
+            
+            console.log('Setting up realtime listeners...');
+            
+            // Listen for assets changes with error handling
+            assetsRef.on('value', (snapshot) => {
+                try {
+                    const data = snapshot.val();
+                    console.log('Assets data received:', data ? Object.keys(data).length : 0, 'assets');
+                    
+                    // Clear existing assets
+                    assetsDB = {};
+                    
+                    if (data) {
+                        // Process each asset from Firebase
+                        Object.keys(data).forEach(firebaseId => {
+                            const asset = data[firebaseId];
+                            if (asset && asset.assetTag) {
+                                // Store with Firebase ID as key
+                                assetsDB[firebaseId] = asset;
+                            }
+                        });
+                        
+                        // Update local storage backup
+                        localStorage.setItem('ctmAssetsBackup', JSON.stringify(assetsDB));
+                        
+                        console.log('Processed', Object.keys(assetsDB).length, 'assets');
+                    }
+                    
+                    updateStatistics();
+                    updateAssetCharts();
+                    updateAssetSummary();
+                    updateLastSync();
+                    
+                    document.getElementById('assetsLoaded').textContent = Object.keys(assetsDB).length;
+                    
+                } catch (error) {
+                    console.error('Error processing assets data:', error);
+                    showToast('Data Processing Error', 'Failed to process asset data', 'error');
+                }
+            }, (error) => {
+                console.error('Firebase assets read error:', error);
+                showToast('Database Error', 'Failed to read from database', 'error');
+            });
+        }
+
+        // ==============================================
+        // DASHBOARD UPDATE FUNCTIONS WITH ANIMATIONS
+        // ==============================================
+        function updateStatistics() {
+            try {
+                // Extract assets from assetsDB
+                const assetArray = [];
+                Object.keys(assetsDB).forEach(key => {
+                    const asset = assetsDB[key];
+                    if (asset && asset.assetTag && typeof asset === 'object') {
+                        assetArray.push(asset);
+                    }
+                });
+                
+                const totalAssets = assetArray.length;
+                const activeAssets = assetArray.filter(a => 
+                    a.status === 'Active' || a.status === 'In Use' || a.condition === 'Active'
+                ).length;
+                
+                // Count different asset types
+                const desktopsCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Desktop') || type === 'Desktop PC' || type === 'Desktop Computer';
+                }).length;
+                
+                const laptopsCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Laptop') || type === 'Laptop PC' || type === 'Laptop';
+                }).length;
+                
+                const printersCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Printer') || type === 'Printer';
+                }).length;
+                
+                const mobilesCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Mobile') || type.includes('Phone') || type === 'Mobile Phone';
+                }).length;
+                
+                const networkCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Network') || type.includes('Router') || type.includes('Switch');
+                }).length;
+                
+                // Calculate total value
+                let totalValue = 0;
+                assetArray.forEach(asset => {
+                    const price = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                    if (!isNaN(price)) {
+                        totalValue += price;
+                    }
+                });
+                
+                // Update display with animation
+                animateCounter('totalAssetsFirebase', totalAssets);
+                animateCounter('activeAssetsFirebase', activeAssets);
+                animateCounter('desktopsCount', desktopsCount);
+                animateCounter('laptopsCount', laptopsCount);
+                animateCounter('printersCount', printersCount);
+                animateCounter('mobilesCount', mobilesCount);
+                animateCounter('networkCount', networkCount);
+                
+                // Format total value
+                const formattedValue = new Intl.NumberFormat('en-LK', {
+                    style: 'currency',
+                    currency: 'LKR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(totalValue);
+                
+                document.getElementById('totalValue').textContent = formattedValue;
+                
+                // Update last update time
+                const now = new Date();
+                const timeString = now.toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                document.getElementById('lastUpdateTime').textContent = timeString;
+                
+            } catch (error) {
+                console.error('Error updating statistics:', error);
+            }
+        }
+
+        function updateAssetSummary() {
+            try {
+                const assetArray = [];
+                Object.keys(assetsDB).forEach(key => {
+                    const asset = assetsDB[key];
+                    if (asset && asset.assetTag && typeof asset === 'object') {
+                        assetArray.push(asset);
+                    }
+                });
+                
+                const totalAssets = assetArray.length;
+                
+                // Count by specific categories
+                const desktopCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Desktop') || type === 'Desktop PC';
+                }).length;
+                
+                const laptopCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Laptop') || type === 'Laptop PC';
+                }).length;
+                
+                const printerCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Printer');
+                }).length;
+                
+                const mobileCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Mobile') || type.includes('Phone');
+                }).length;
+                
+                const networkDeviceCount = assetArray.filter(a => {
+                    const type = a.assetType || a.type || '';
+                    return type.includes('Network') || type.includes('Router') || type.includes('Switch');
+                }).length;
+                
+                // Update summary display with animation
+                animateCounterElement('desktopCount', desktopCount);
+                animateCounterElement('laptopCount', laptopCount);
+                animateCounterElement('printerCount', printerCount);
+                animateCounterElement('mobileCount', mobileCount);
+                animateCounterElement('networkDeviceCount', networkDeviceCount);
+                animateCounterElement('totalAssetsCount', totalAssets);
+                
+            } catch (error) {
+                console.error('Error updating asset summary:', error);
+            }
+        }
+
+        function updateAssetCharts() {
+            try {
+                // Prepare data for charts
+                const assetArray = [];
+                Object.keys(assetsDB).forEach(key => {
+                    const asset = assetsDB[key];
+                    if (asset && asset.assetTag && typeof asset === 'object') {
+                        assetArray.push(asset);
+                    }
+                });
+                
+                // Count assets by type for bar chart
+                const typeCounts = {};
+                const statusCounts = {
+                    'Active': 0,
+                    'In Use': 0,
+                    'In Storage': 0,
+                    'Under Repair': 0,
+                    'Retired': 0,
+                    'Unknown': 0
+                };
+                
+                assetArray.forEach(asset => {
+                    // Count by type
+                    const type = asset.assetType || asset.type || 'Unknown';
+                    typeCounts[type] = (typeCounts[type] || 0) + 1;
+                    
+                    // Count by status
+                    const status = asset.status || asset.condition || 'Unknown';
+                    if (statusCounts.hasOwnProperty(status)) {
+                        statusCounts[status]++;
+                    } else {
+                        statusCounts['Unknown']++;
+                    }
+                });
+                
+                // Prepare bar chart data (top 10 types)
+                const sortedTypes = Object.entries(typeCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+                
+                const barLabels = sortedTypes.map(item => item[0]);
+                const barData = sortedTypes.map(item => item[1]);
+                
+                // Prepare pie chart data (status distribution)
+                const pieLabels = Object.keys(statusCounts);
+                const pieData = Object.values(statusCounts);
+                const pieColors = [
+                    '#10b981', // Active - green
+                    '#3b82f6', // In Use - blue
+                    '#f59e0b', // In Storage - yellow
+                    '#ef4444', // Under Repair - red
+                    '#6b7280', // Retired - gray
+                    '#94a3b8'  // Unknown - light gray
+                ];
+                
+                // Update or create bar chart
+                updateBarChart(barLabels, barData);
+                
+                // Update or create pie chart
+                updatePieChart(pieLabels, pieData, pieColors);
+                
+            } catch (error) {
+                console.error('Error updating charts:', error);
+            }
+        }
+
+        function updateBarChart(labels, data) {
+            const ctx = document.getElementById('assetBarChart').getContext('2d');
+            
+            if (barChart) {
+                barChart.data.labels = labels;
+                barChart.data.datasets[0].data = data;
+                barChart.update('active');
+            } else {
+                barChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Asset Count',
+                            data: data,
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 1000,
+                            easing: 'easeOutQuart'
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleFont: { size: 12 },
+                                bodyFont: { size: 11 },
+                                padding: 10,
+                                cornerRadius: 6
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                },
+                                ticks: {
+                                    font: { size: 10 },
+                                    padding: 5
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: { size: 10 },
+                                    maxRotation: 45,
+                                    padding: 5
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updatePieChart(labels, data, colors) {
+            const ctx = document.getElementById('assetPieChart').getContext('2d');
+            
+            if (pieChart) {
+                pieChart.data.labels = labels;
+                pieChart.data.datasets[0].data = data;
+                pieChart.data.datasets[0].backgroundColor = colors;
+                pieChart.update('active');
+            } else {
+                pieChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 2,
+                            borderColor: '#ffffff',
+                            hoverBorderWidth: 3,
+                            hoverBorderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            animateScale: true,
+                            animateRotate: true,
+                            duration: 1000
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    font: { size: 10 },
+                                    color: 'rgb(31, 41, 55)'
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = Math.round((value / total) * 100);
+                                        return `${label}: ${value} (${percentage}%)`;
+                                    }
+                                },
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleFont: { size: 12 },
+                                bodyFont: { size: 11 },
+                                padding: 10,
+                                cornerRadius: 6
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ==============================================
+        // HELPER FUNCTIONS WITH ANIMATIONS
+        // ==============================================
+        function animateCounter(elementId, targetValue) {
+            const element = document.getElementById(elementId);
+            const currentText = element.textContent;
+            const currentValue = parseInt(currentText.replace(/[^0-9]/g, '')) || 0;
+            
+            if (currentValue === targetValue) return;
+            
+            let startValue = currentValue;
+            const duration = 800; // milliseconds
+            const startTime = Date.now();
+            
+            function updateCounter() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function for smooth animation
+                const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                const current = Math.floor(startValue + (targetValue - startValue) * easeOutQuart);
+                
+                // Format number with commas for thousands
+                element.textContent = current.toLocaleString();
+                
+                // Add animation effect
+                element.style.transform = 'scale(1.1)';
+                element.style.transition = 'transform 0.2s ease';
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateCounter);
+                } else {
+                    element.textContent = targetValue.toLocaleString();
+                    setTimeout(() => {
+                        element.style.transform = 'scale(1)';
+                    }, 200);
+                }
+            }
+            
+            requestAnimationFrame(updateCounter);
+        }
+
+        function animateCounterElement(elementId, targetValue) {
+            const element = document.getElementById(elementId);
+            const currentValue = parseInt(element.textContent) || 0;
+            
+            if (currentValue === targetValue) return;
+            
+            let startValue = currentValue;
+            const duration = 600;
+            const startTime = Date.now();
+            
+            function updateCounter() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+                const current = Math.floor(startValue + (targetValue - startValue) * easeOutCubic);
+                
+                element.textContent = current;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateCounter);
+                } else {
+                    element.textContent = targetValue;
+                }
+            }
+            
+            requestAnimationFrame(updateCounter);
+        }
+
+        function updateLastSync() {
+            lastSyncTime = new Date();
+            const timeString = lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateString = lastSyncTime.toLocaleDateString();
+            document.getElementById('lastSyncTime').textContent = `${dateString} ${timeString}`;
+        }
+
+        function refreshDashboardData() {
+            if (firebaseConnected && isFirebaseInitialized) {
+                updateFirebaseStatus('syncing');
+                showToast('Refreshing Dashboard', 'Fetching latest data from Firebase...', 'info');
+                
+                // Force refresh by re-reading data
+                assetsRef.once('value').then((snapshot) => {
+                    const data = snapshot.val();
+                    assetsDB = data || {};
+                    
+                    // Update UI
+                    updateStatistics();
+                    updateAssetCharts();
+                    updateAssetSummary();
+                    
+                    updateFirebaseStatus('connected');
+                    showToast('Dashboard Updated', 'Data refreshed successfully', 'success');
+                }).catch(error => {
+                    console.error('Refresh error:', error);
+                    updateFirebaseStatus(firebaseConnected ? 'connected' : 'disconnected');
+                    showToast('Refresh Failed', 'Could not fetch latest data', 'error');
+                });
+            } else {
+                showToast('Offline Mode', 'Cannot refresh: Not connected to Firebase', 'warning');
+                loadLocalBackup();
+            }
+        }
+
+        function refreshActivities() {
+            // Simulate loading activities
+            const activitiesList = document.getElementById('recentActivities');
+            activitiesList.innerHTML = '';
+            
+            showToast('Refreshing Activities', 'Loading recent activities...', 'info');
+            
+            setTimeout(() => {
+                // Sample activities
+                const activities = [
+                    { icon: 'fa-plus', title: 'New asset added: Desktop PC-001', time: '2 minutes ago' },
+                    { icon: 'fa-qrcode', title: 'QR code scanned: Laptop-042', time: '15 minutes ago' },
+                    { icon: 'fa-sync', title: 'Database synchronized successfully', time: '30 minutes ago' },
+                    { icon: 'fa-check', title: 'Asset maintenance completed: Printer-015', time: '1 hour ago' },
+                    { icon: 'fa-user', title: 'User login: Administrator', time: '2 hours ago' }
+                ];
+                
+                activities.forEach((activity, index) => {
+                    const activityItem = document.createElement('div');
+                    activityItem.className = 'activity-item';
+                    activityItem.style.animationDelay = `${index * 0.1}s`;
+                    activityItem.innerHTML = `
+                        <div class="activity-icon">
+                            <i class="fas ${activity.icon}"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">${activity.title}</div>
+                            <div class="activity-time">${activity.time}</div>
+                        </div>
+                    `;
+                    activitiesList.appendChild(activityItem);
+                });
+                
+                showToast('Activities Updated', 'Recent activities loaded', 'success');
+            }, 1000);
+        }
+
+        async function syncOfflineData() {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                showToast('Offline Mode', 'Cannot sync: Not connected to Firebase', 'error');
+                return;
+            }
+            
+            updateFirebaseStatus('syncing');
+            showToast('Synchronizing', 'Syncing offline data with Firebase...', 'info');
+            
+            try {
+                // Simulate sync process with loading animation
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Refresh data after sync
+                refreshDashboardData();
+                
+                showToast('Synchronization Complete', 'All data synced successfully', 'success');
+                
+            } catch (error) {
+                console.error('Sync error:', error);
+                updateFirebaseStatus(firebaseConnected ? 'connected' : 'disconnected');
+                showToast('Synchronization Failed', 'Could not sync with Firebase', 'error');
+            }
+        }
+
+        function showToast(title, message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+                </div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            // Close button functionality
+            const closeBtn = toast.querySelector('.toast-close');
+            closeBtn.addEventListener('click', () => {
+                hideToast(toast);
+            });
+            
+            // Auto hide after duration
+            setTimeout(() => {
+                hideToast(toast);
+            }, 5000);
+        }
+
+        function hideToast(toast) {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%) scale(0.9)';
+            setTimeout(() => {
+                if (toast.parentNode === toastContainer) {
+                    toastContainer.removeChild(toast);
+                }
+            }, 300);
+        }
+
+        // ==============================================
+        // INITIALIZATION
+        // ==============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Dashboard initializing...');
+            
+            // Set up navigation scroll
+            setupNavigationScroll();
+            
+            // Set up logout button
+            setupLogoutButton();
+            
+            // Initialize Firebase
+            initializeFirebase();
+            
+            // Set up periodic refresh
+            setInterval(() => {
+                if (firebaseConnected) {
+                    updateStatistics();
+                }
+            }, 30000); // Refresh every 30 seconds
+            
+            // Initialize charts
+            setTimeout(() => {
+                updateAssetCharts();
+            }, 2000);
+            
+            // Initialize activities
+            setTimeout(() => {
+                refreshActivities();
+            }, 3000);
+            
+            // Fallback preloader hide
+            setTimeout(() => {
+                const preloader = document.getElementById('preloader');
+                if (preloader && preloader.style.display !== 'none') {
+                    preloader.classList.add('hidden');
+                    setTimeout(() => {
+                        preloader.style.display = 'none';
+                        showToast('Dashboard Ready', 'System initialized successfully', 'success');
+                    }, 500);
+                }
+            }, 4000);
+            
+            // Add click animations to cards
+            document.querySelectorAll('.card, .stat-card, .action-btn').forEach(element => {
+                element.addEventListener('click', function(e) {
+                    if (this.classList.contains('action-btn') || this.classList.contains('stat-card')) {
+                        const ripple = document.createElement('span');
+                        const rect = this.getBoundingClientRect();
+                        const size = Math.max(rect.width, rect.height);
+                        const x = e.clientX - rect.left - size / 2;
+                        const y = e.clientY - rect.top - size / 2;
+                        
+                        ripple.style.cssText = `
+                            position: absolute;
+                            border-radius: 50%;
+                            background: rgba(255, 255, 255, 0.7);
+                            transform: scale(0);
+                            animation: ripple-animation 0.6s linear;
+                            width: ${size}px;
+                            height: ${size}px;
+                            left: ${x}px;
+                            top: ${y}px;
+                            pointer-events: none;
+                        `;
+                        
+                        this.style.position = 'relative';
+                        this.style.overflow = 'hidden';
+                        this.appendChild(ripple);
+                        
+                        setTimeout(() => {
+                            ripple.remove();
+                        }, 600);
+                    }
+                });
+            });
+            
+            // Add ripple animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes ripple-animation {
+                    to {
+                        transform: scale(4);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+
+        // Make functions globally available
+        window.syncOfflineData = syncOfflineData;
+        window.refreshActivities = refreshActivities;
+        window.refreshDashboardData = refreshDashboardData;
+        window.performLogout = performLogout;
+        
+    </script>
+</body>
+</html>

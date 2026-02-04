@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CTM IT - Firebase Settings</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --success-green: #10b981;
+            --warning-yellow: #fbbf24;
+            --danger-red: #ef4444;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--dark-gray);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Firebase Status Indicator */
+        .firebase-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .firebase-connected {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border: 2px solid #10b981;
+        }
+
+        .firebase-disconnected {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: 2px solid #ef4444;
+        }
+
+        .firebase-syncing {
+            background: rgba(59, 130, 246, 0.95);
+            color: white;
+            border: 2px solid #3b82f6;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            box-shadow: var(--shadow);
+            padding: 0.8rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--primary-blue);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        .department-name {
+            font-size: 0.7rem;
+            color: var(--success-green);
+            font-weight: 600;
+        }
+
+        /* Navigation */
+        .mobile-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+            gap: 0.5rem;
+            scrollbar-width: none;
+        }
+
+        .mobile-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 0 0 auto;
+            padding: 0.6rem 1rem;
+            background: var(--light-gray);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--medium-gray);
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .nav-tab:hover {
+            background: #e5e7eb;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1rem;
+            max-width: 100%;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Page Content */
+        .page {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Page Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem 1rem;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--dark-gray);
+        }
+
+        .page-subtitle {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--success-green);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        /* Form Grid */
+        .form-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .form-label.required::after {
+            content: " *";
+            color: var(--danger-red);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            background: var(--white);
+            font-family: inherit;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 44px;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-blue);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning-yellow);
+            color: var(--dark-gray);
+        }
+
+        .btn-danger {
+            background: var(--danger-red);
+            color: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        /* Firebase Data Stats */
+        .firebase-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: var(--light-gray);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .toast {
+            background: var(--white);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            animation: slideInUp 0.3s ease;
+            border-left: 4px solid var(--success-green);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+        }
+
+        .toast-success { border-left-color: var(--success-green); }
+        .toast-error { border-left-color: var(--danger-red); }
+        .toast-warning { border-left-color: var(--warning-yellow); }
+        .toast-info { border-left-color: var(--secondary-blue); }
+
+        .toast-success .toast-icon { color: var(--success-green); }
+        .toast-error .toast-icon { color: var(--danger-red); }
+        .toast-warning .toast-icon { color: var(--warning-yellow); }
+        .toast-info .toast-icon { color: var(--secondary-blue); }
+
+        /* Info Box */
+        .info-box {
+            background: linear-gradient(135deg, #dbeafe, #e0e7ff);
+            border-left: 4px solid var(--primary-blue);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .info-box-title {
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-box-content {
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--white);
+            padding: 1.5rem 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .copyright {
+            color: var(--medium-gray);
+            font-size: 0.8rem;
+        }
+
+        /* Warning Box */
+        .warning-box {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-left: 4px solid var(--warning-yellow);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .warning-box-title {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .warning-box-content {
+            font-size: 0.9rem;
+            color: #92400e;
+        }
+
+        /* Danger Box */
+        .danger-box {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            border-left: 4px solid var(--danger-red);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .danger-box-title {
+            font-weight: 600;
+            color: #991b1b;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .danger-box-content {
+            font-size: 0.9rem;
+            color: #991b1b;
+        }
+
+        /* Code Block */
+        .code-block {
+            background: var(--dark-gray);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .header {
+                padding: 1rem 2rem;
+            }
+
+            .logo {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+
+            .company-name {
+                font-size: 1.4rem;
+            }
+
+            .department-name {
+                font-size: 0.8rem;
+            }
+
+            .mobile-nav {
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .nav-tab {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .main-container {
+                padding: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .form-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: row;
+            }
+
+            .btn {
+                min-width: 120px;
+            }
+
+            .firebase-stats {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .toast-container {
+                right: 20px;
+                left: auto;
+                max-width: 350px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-nav {
+                gap: 2rem;
+            }
+
+            .form-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase Status Indicator -->
+    <div class="firebase-status firebase-disconnected" id="firebaseStatus">
+        <i class="fas fa-plug"></i>
+        <span>Connecting to Firebase...</span>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="logo-text">
+                <div class="company-name">CTM IT Department</div>
+                <div class="department-name">Firebase Real-time Asset Management</div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <button class="nav-tab" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='scanqr.html'">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='addasset.html'">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Asset</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventory.html'">
+                <i class="fas fa-boxes-stacked"></i>
+                <span>Inventory</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='firebase.html'">
+                <i class="fas fa-database"></i>
+                <span>Firebase</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='fullreport.html'">
+                <i class="fas fa-file-alt"></i>
+                <span>Full Report</span>
+            </button>
+            <button class="nav-tab active" onclick="window.location.href='inventorymap.html'">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Inventory Map</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Firebase Page -->
+        <div id="firebase-page" class="page">
+            <div class="page-header">
+                <h1 class="page-title">Firebase Database Management</h1>
+                <p class="page-subtitle">Manage your Firebase Realtime Database</p>
+            </div>
+
+            <div class="info-box">
+                <div class="info-box-title">
+                    <i class="fas fa-info-circle"></i>
+                    Current Firebase Configuration
+                </div>
+                <div class="info-box-content">
+                    This system is pre-configured with Firebase. You can view the current configuration below.
+                    To change Firebase projects, update the configuration in the code.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <h2 class="card-title">Database Operations</h2>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="loadAllFromFirebase()">
+                        <i class="fas fa-download"></i> Load from Firebase
+                    </button>
+                    <button class="btn btn-success" onclick="pushToFirebase()">
+                        <i class="fas fa-upload"></i> Push to Firebase
+                    </button>
+                    <button class="btn btn-warning" onclick="clearLocalData()">
+                        <i class="fas fa-trash"></i> Clear Local Data
+                    </button>
+                    <button class="btn btn-danger" onclick="clearFirebaseData()">
+                        <i class="fas fa-fire"></i> Clear Firebase Data
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <h2 class="card-title">Database Statistics</h2>
+                    </div>
+                </div>
+                <div class="firebase-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="dbTotalRecords">0</div>
+                        <div class="stat-label">Total Assets</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="dbLastUpdate">-</div>
+                        <div class="stat-label">Last Update</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="dbOnlineUsers">1</div>
+                        <div class="stat-label">Online Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="dbSyncStatus">Offline</div>
+                        <div class="stat-label">Sync Status</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-cogs"></i>
+                        </div>
+                        <h2 class="card-title">Firebase Configuration</h2>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Firebase Project ID</label>
+                        <div class="form-input" id="configProjectId" style="border: none; background: transparent; padding: 0.5rem 0; word-break: break-all;">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Database URL</label>
+                        <div class="form-input" id="configDatabaseUrl" style="border: none; background: transparent; padding: 0.5rem 0; word-break: break-all;">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <div class="form-input" id="configApiKey" style="border: none; background: transparent; padding: 0.5rem 0; word-break: break-all;">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Auth Domain</label>
+                        <div class="form-input" id="configAuthDomain" style="border: none; background: transparent; padding: 0.5rem 0; word-break: break-all;">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Storage Bucket</label>
+                        <div class="form-input" id="configStorageBucket" style="border: none; background: transparent; padding: 0.5rem 0; word-break: break-all;">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Messaging Sender ID</label>
+                        <div class="form-input" id="configMessagingSenderId" style="border: none; background: transparent; padding: 0.5rem 0; word-break: break-all;">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">App ID</label>
+                        <div class="form-input" id="configAppId" style="border: none; background: transparent; padding: 0.5rem 0; word-break: break-all;">Loading...</div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="configureFirebase()">
+                        <i class="fas fa-cog"></i> Configure Firebase
+                    </button>
+                    <button class="btn btn-secondary" onclick="testFirebaseConnection()">
+                        <i class="fas fa-plug"></i> Test Connection
+                    </button>
+                    <button class="btn btn-warning" onclick="showConfigurationCode()">
+                        <i class="fas fa-code"></i> View Configuration Code
+                    </button>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <div class="warning-box-title">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Warning: Advanced Operations
+                </div>
+                <div class="warning-box-content">
+                    The operations below can affect your data. Make sure you have backups before proceeding.
+                    Clearing Firebase data will permanently delete all assets from the cloud database.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <h2 class="card-title">Advanced Tools</h2>
+                    </div>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Export Data Format</label>
+                        <select class="form-select" id="exportFormat">
+                            <option value="json">JSON Format</option>
+                            <option value="csv">CSV Format</option>
+                            <option value="excel">Excel Format</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Backup Name</label>
+                        <input type="text" class="form-input" id="backupName" placeholder="e.g., backup-2024-01-01">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="exportDatabase()">
+                        <i class="fas fa-file-export"></i> Export Database
+                    </button>
+                    <button class="btn btn-success" onclick="importDatabase()">
+                        <i class="fas fa-file-import"></i> Import Database
+                    </button>
+                    <button class="btn btn-warning" onclick="syncOfflineData()">
+                        <i class="fas fa-sync"></i> Sync Offline Data
+                    </button>
+                    <button class="btn btn-secondary" onclick="rebuildIndexes()">
+                        <i class="fas fa-search"></i> Rebuild Indexes
+                    </button>
+                </div>
+            </div>
+
+            <div class="danger-box">
+                <div class="danger-box-title">
+                    <i class="fas fa-skull-crossbones"></i>
+                    Danger Zone: Data Destruction
+                </div>
+                <div class="danger-box-content">
+                    These operations will permanently delete data. This action cannot be undone.
+                    Make absolutely sure you have backups before proceeding.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-bomb"></i>
+                        </div>
+                        <h2 class="card-title">Data Management</h2>
+                    </div>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Confirm Action</label>
+                        <input type="text" class="form-input" id="confirmDelete" placeholder="Type 'DELETE' to confirm">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Select Data to Delete</label>
+                        <select class="form-select" id="deleteScope">
+                            <option value="offline">Offline Data Only</option>
+                            <option value="local">Local Backup Only</option>
+                            <option value="firebase">Firebase Data Only</option>
+                            <option value="all">All Data (Offline + Local + Firebase)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-danger" onclick="performDeleteOperation()" style="width: 100%;">
+                        <i class="fas fa-trash-alt"></i> Execute Delete Operation
+                    </button>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="info-box-title">
+                    <i class="fas fa-life-ring"></i>
+                    Firebase Setup Instructions
+                </div>
+                <div class="info-box-content">
+                    <ol style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>Go to <a href="https://firebase.google.com" target="_blank">Firebase Console</a></li>
+                        <li>Create a new project or select existing project</li>
+                        <li>Enable Realtime Database</li>
+                        <li>Copy your Firebase configuration</li>
+                        <li>Update the configuration in the JavaScript code</li>
+                        <li>Set database rules to allow read/write (for testing)</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">CTM IT Department - Realtime Asset Management System</div>
+            <div class="copyright">
+                &copy; 2026 Real-time Asset Management powered by Lakmal Sanjeewa Jayawickrama
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==============================================
+        // FIREBASE CONFIGURATION
+        // ==============================================
+        
+        // Your Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyABuZWbNXGJ359mbctDsX-SSxwkUd3v1KY",
+            authDomain: "student-management-syste-d39a3.firebaseapp.com",
+            databaseURL: "https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "student-management-syste-d39a3",
+            storageBucket: "student-management-syste-d39a3.firebasestorage.app",
+            messagingSenderId: "36925529487",
+            appId: "1:36925529487:web:385e1af7ba174f8440fffa"
+        };
+
+        // Initialize Firebase
+        let firebaseApp;
+        let database;
+        let isFirebaseInitialized = false;
+        let databaseRef;
+        let assetsRef;
+        let connectionRef;
+
+        // ==============================================
+        // GLOBAL VARIABLES
+        // ==============================================
+        let assetsDB = {};
+        let firebaseConnected = false;
+        let lastSyncTime = null;
+
+        // ==============================================
+        // FIXED FIREBASE INITIALIZATION
+        // ==============================================
+        function initializeFirebase() {
+            try {
+                // Check if Firebase app is already initialized
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                } else {
+                    firebaseApp = firebase.app();
+                }
+                
+                database = firebase.database();
+                isFirebaseInitialized = true;
+                
+                // Set database references
+                databaseRef = database.ref();
+                assetsRef = database.ref('assets');
+                connectionRef = database.ref('.info/connected');
+                
+                // Update UI with configuration info
+                updateConfigurationDisplay();
+                
+                // Set up connection status listener
+                connectionRef.on('value', (snapshot) => {
+                    firebaseConnected = snapshot.val();
+                    updateConnectionStatus(firebaseConnected);
+                    
+                    if (firebaseConnected) {
+                        showToast('Connected to Firebase Database', 'success');
+                        setupRealtimeListeners();
+                        updateDatabaseStats();
+                    } else {
+                        showToast('Disconnected from Firebase. Working offline.', 'warning');
+                        updateDatabaseStats();
+                    }
+                });
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showToast(`Firebase connection error: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+                updateConfigurationDisplay();
+                
+                return false;
+            }
+        }
+
+        // ==============================================
+        // CONNECTION STATUS UPDATES
+        // ==============================================
+        function updateConnectionStatus(connected) {
+            const firebaseStatus = document.getElementById('firebaseStatus');
+            const syncStatus = document.getElementById('dbSyncStatus');
+            
+            if (connected) {
+                firebaseStatus.className = 'firebase-status firebase-connected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Connected to Firebase</span>';
+                syncStatus.textContent = 'Online';
+                syncStatus.style.color = 'var(--success-green)';
+            } else {
+                firebaseStatus.className = 'firebase-status firebase-disconnected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Disconnected from Firebase</span>';
+                syncStatus.textContent = 'Offline';
+                syncStatus.style.color = 'var(--danger-red)';
+            }
+        }
+
+        function updateConfigurationDisplay() {
+            document.getElementById('configProjectId').textContent = firebaseConfig.projectId || 'Not configured';
+            document.getElementById('configDatabaseUrl').textContent = firebaseConfig.databaseURL || 'Not configured';
+            document.getElementById('configApiKey').textContent = firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 20)}...` : 'Not configured';
+            document.getElementById('configAuthDomain').textContent = firebaseConfig.authDomain || 'Not configured';
+            document.getElementById('configStorageBucket').textContent = firebaseConfig.storageBucket || 'Not configured';
+            document.getElementById('configMessagingSenderId').textContent = firebaseConfig.messagingSenderId || 'Not configured';
+            document.getElementById('configAppId').textContent = firebaseConfig.appId || 'Not configured';
+        }
+
+        // ==============================================
+        // FIXED: REAL-TIME DATABASE LISTENERS
+        // ==============================================
+        function setupRealtimeListeners() {
+            if (!isFirebaseInitialized) return;
+            
+            assetsRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                
+                // Clear existing assets
+                assetsDB = {};
+                
+                if (data) {
+                    // Process each asset from Firebase
+                    Object.keys(data).forEach(firebaseId => {
+                        const asset = data[firebaseId];
+                        if (asset && asset.assetTag) {
+                            // Store with Firebase ID as key
+                            assetsDB[firebaseId] = asset;
+                        }
+                    });
+                }
+                
+                updateDatabaseStats();
+                localStorage.setItem('ctmAssetsBackup', JSON.stringify(assetsDB));
+                
+            }, (error) => {
+                console.error('Firebase read error:', error);
+            });
+        }
+
+        // ==============================================
+        // DATABASE STATISTICS
+        // ==============================================
+        function updateDatabaseStats() {
+            // Extract assets from assetsDB correctly
+            const assetArray = [];
+            Object.keys(assetsDB).forEach(key => {
+                const asset = assetsDB[key];
+                if (asset && asset.assetTag && !Array.isArray(asset)) {
+                    assetArray.push(asset);
+                }
+            });
+            
+            document.getElementById('dbTotalRecords').textContent = assetArray.length;
+            document.getElementById('dbLastUpdate').textContent = new Date().toLocaleTimeString();
+            document.getElementById('dbOnlineUsers').textContent = firebaseConnected ? '1+' : '0';
+        }
+
+        // ==============================================
+        // DATABASE OPERATIONS
+        // ==============================================
+        async function loadAllFromFirebase() {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                showToast('Cannot load: Not connected to Firebase', 'error');
+                return;
+            }
+            
+            try {
+                showToast('Loading data from Firebase...', 'info');
+                const snapshot = await assetsRef.once('value');
+                const data = snapshot.val() || {};
+                
+                assetsDB = data;
+                localStorage.setItem('ctmAssetsBackup', JSON.stringify(assetsDB));
+                
+                updateDatabaseStats();
+                showToast(`Loaded ${Object.keys(data).length} records from Firebase`, 'success');
+                
+            } catch (error) {
+                console.error('Load error:', error);
+                showToast(`Failed to load: ${error.message}`, 'error');
+            }
+        }
+
+        async function pushToFirebase() {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                showToast('Cannot push: Not connected to Firebase', 'error');
+                return;
+            }
+            
+            try {
+                // Load from local backup
+                const localBackup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+                
+                if (Object.keys(localBackup).length === 0) {
+                    showToast('No local data to push', 'warning');
+                    return;
+                }
+                
+                showToast('Pushing data to Firebase...', 'info');
+                
+                // Push local backup
+                for (const [key, asset] of Object.entries(localBackup)) {
+                    if (asset && asset.assetTag) {
+                        await assetsRef.child(key).set(asset);
+                    }
+                }
+                
+                updateDatabaseStats();
+                showToast('Data successfully pushed to Firebase', 'success');
+                
+            } catch (error) {
+                console.error('Push error:', error);
+                showToast(`Failed to push: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLocalData() {
+            if (confirm('Are you sure you want to clear all local data? This will delete all offline data and local backups.')) {
+                localStorage.removeItem('ctmAssetsBackup');
+                localStorage.removeItem('ctmOfflineAssets');
+                assetsDB = {};
+                
+                updateDatabaseStats();
+                showToast('All local data cleared', 'success');
+            }
+        }
+
+        async function clearFirebaseData() {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                showToast('Cannot clear: Not connected to Firebase', 'error');
+                return;
+            }
+            
+            const confirmText = prompt('⚠️ WARNING: This will delete ALL data from Firebase!\nType "DELETE ALL" to confirm:');
+            
+            if (confirmText === 'DELETE ALL') {
+                try {
+                    showToast('Clearing Firebase data...', 'warning');
+                    await assetsRef.remove();
+                    
+                    updateDatabaseStats();
+                    showToast('Firebase data cleared successfully', 'success');
+                    
+                } catch (error) {
+                    console.error('Clear error:', error);
+                    showToast(`Failed to clear: ${error.message}`, 'error');
+                }
+            } else {
+                showToast('Firebase data clear cancelled', 'info');
+            }
+        }
+
+        // ==============================================
+        // CONFIGURATION FUNCTIONS
+        // ==============================================
+        function configureFirebase() {
+            showToast('Firebase configuration editor available in full version', 'info');
+            
+            // Show configuration modal
+            const configCode = `// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "${firebaseConfig.apiKey}",
+    authDomain: "${firebaseConfig.authDomain}",
+    databaseURL: "${firebaseConfig.databaseURL}",
+    projectId: "${firebaseConfig.projectId}",
+    storageBucket: "${firebaseConfig.storageBucket}",
+    messagingSenderId: "${firebaseConfig.messagingSenderId}",
+    appId: "${firebaseConfig.appId}"
+};`;
+            
+            alert('Current Firebase Configuration:\n\n' + configCode + '\n\nTo change configuration, edit the JavaScript code.');
+        }
+
+        function testFirebaseConnection() {
+            if (!isFirebaseInitialized) {
+                showToast('Firebase not initialized', 'error');
+                return;
+            }
+            
+            if (firebaseConnected) {
+                showToast('✅ Firebase connection test successful!', 'success');
+            } else {
+                showToast('❌ Firebase connection test failed', 'error');
+            }
+            
+            // Update status display
+            updateConnectionStatus(firebaseConnected);
+        }
+
+        function showConfigurationCode() {
+            const configCode = `// Firebase Configuration for CTM IT Asset Management
+const firebaseConfig = {
+    apiKey: "${firebaseConfig.apiKey}",
+    authDomain: "${firebaseConfig.authDomain}",
+    databaseURL: "${firebaseConfig.databaseURL}",
+    projectId: "${firebaseConfig.projectId}",
+    storageBucket: "${firebaseConfig.storageBucket}",
+    messagingSenderId: "${firebaseConfig.messagingSenderId}",
+    appId: "${firebaseConfig.appId}"
+};
+
+// Initialize Firebase
+let firebaseApp;
+let database;
+
+function initializeFirebase() {
+    try {
+        if (!firebase.apps.length) {
+            firebaseApp = firebase.initializeApp(firebaseConfig);
+        } else {
+            firebaseApp = firebase.app();
+        }
+        
+        database = firebase.database();
+        console.log('Firebase initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('Firebase initialization error:', error);
+        return false;
+    }
+}`;
+            
+            const codeWindow = window.open('', '_blank');
+            codeWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Firebase Configuration Code</title>
+                        <style>
+                            body { 
+                                font-family: monospace; 
+                                padding: 20px;
+                                background: #1e1e1e;
+                                color: #d4d4d4;
+                            }
+                            pre { 
+                                background: #2d2d2d; 
+                                padding: 20px; 
+                                border-radius: 5px;
+                                overflow-x: auto;
+                            }
+                            .comment { color: #6a9955; }
+                            .string { color: #ce9178; }
+                            .keyword { color: #569cd6; }
+                            .function { color: #dcdcaa; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Firebase Configuration Code</h2>
+                        <pre>${configCode.replace(/\/\/.*$/gm, '<span class="comment">$&</span>')
+                                        .replace(/".*?"/g, '<span class="string">$&</span>')
+                                        .replace(/\b(const|let|function|try|catch|return|if|else)\b/g, '<span class="keyword">$&</span>')
+                                        .replace(/\b(initializeFirebase)\b/g, '<span class="function">$&</span>')}</pre>
+                        <button onclick="window.print()" style="padding: 10px 20px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer;">Print Code</button>
+                    </body>
+                </html>
+            `);
+            codeWindow.document.close();
+        }
+
+        // ==============================================
+        // ADVANCED TOOLS FUNCTIONS
+        // ==============================================
+        function exportDatabase() {
+            const format = document.getElementById('exportFormat').value;
+            const backupName = document.getElementById('backupName').value || `backup-${new Date().toISOString().split('T')[0]}`;
+            
+            // Load all data
+            const localBackup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+            
+            const allData = {
+                backupName: backupName,
+                exportedAt: new Date().toISOString(),
+                totalRecords: Object.keys(localBackup).length,
+                assets: localBackup,
+                firebaseConfig: firebaseConfig
+            };
+            
+            if (format === 'json') {
+                const dataStr = JSON.stringify(allData, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                const exportFileDefaultName = `${backupName}.json`;
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+                
+                showToast(`Database exported as ${exportFileDefaultName}`, 'success');
+            } else if (format === 'csv') {
+                // Convert to CSV
+                let csvContent = 'Asset Tag,Type,Brand/Model,Serial Number,Assigned To,Location,Status,Purchase Date,Purchase Value\n';
+                
+                Object.values(localBackup).forEach(asset => {
+                    if (asset && asset.assetTag) {
+                        const purchasePrice = parseFloat(asset.purchasePrice || asset.price || asset.value || 0);
+                        csvContent += `"${asset.assetTag}","${asset.assetType || ''}","${asset.brandModel || ''}","${asset.serialNumber || ''}","${asset.assignedTo || ''}","${asset.location || ''}","${asset.status || ''}","${asset.purchaseDate || ''}",${purchasePrice}\n`;
+                    }
+                });
+                
+                const dataUri = 'data:text/csv;charset=utf-8,'+ encodeURIComponent(csvContent);
+                const exportFileDefaultName = `${backupName}.csv`;
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+                
+                showToast(`Database exported as ${exportFileDefaultName}`, 'success');
+            } else {
+                showToast('Excel export available in full version', 'info');
+            }
+        }
+
+        function importDatabase() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json,.csv';
+            
+            fileInput.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const content = event.target.result;
+                        
+                        if (file.name.endsWith('.json')) {
+                            const data = JSON.parse(content);
+                            
+                            if (data.assets) {
+                                localStorage.setItem('ctmAssetsBackup', JSON.stringify(data.assets));
+                                showToast(`Database imported from ${file.name}`, 'success');
+                                updateDatabaseStats();
+                            } else {
+                                showToast('Invalid backup file format', 'error');
+                            }
+                            
+                        } else if (file.name.endsWith('.csv')) {
+                            showToast('CSV import available in full version', 'info');
+                        }
+                    } catch (error) {
+                        showToast(`Import failed: ${error.message}`, 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            fileInput.click();
+        }
+
+        async function syncOfflineData() {
+            if (!isFirebaseInitialized || !firebaseConnected) {
+                showToast('Cannot sync: Not connected to Firebase', 'error');
+                return;
+            }
+            
+            const localBackup = JSON.parse(localStorage.getItem('ctmAssetsBackup') || '{}');
+            
+            if (Object.keys(localBackup).length === 0) {
+                showToast('No local data to sync', 'info');
+                return;
+            }
+            
+            showToast(`Syncing ${Object.keys(localBackup).length} records...`, 'info');
+            
+            let synced = 0;
+            let failed = 0;
+            
+            for (const [key, assetData] of Object.entries(localBackup)) {
+                try {
+                    await assetsRef.child(key).set(assetData);
+                    synced++;
+                    
+                } catch (error) {
+                    console.error(`Failed to sync ${key}:`, error);
+                    failed++;
+                }
+            }
+            
+            if (synced > 0) {
+                showToast(`Successfully synced ${synced} records to Firebase`, 'success');
+            }
+            if (failed > 0) {
+                showToast(`Failed to sync ${failed} records`, 'error');
+            }
+            
+            updateDatabaseStats();
+        }
+
+        function rebuildIndexes() {
+            showToast('Index rebuilding available in full version', 'info');
+        }
+
+        // ==============================================
+        // DATA MANAGEMENT FUNCTIONS
+        // ==============================================
+        function performDeleteOperation() {
+            const confirmText = document.getElementById('confirmDelete').value;
+            const deleteScope = document.getElementById('deleteScope').value;
+            
+            if (confirmText !== 'DELETE') {
+                showToast('Please type "DELETE" to confirm', 'error');
+                return;
+            }
+            
+            if (deleteScope === 'offline') {
+                localStorage.removeItem('ctmOfflineAssets');
+                showToast('Offline data deleted', 'success');
+                
+            } else if (deleteScope === 'local') {
+                localStorage.removeItem('ctmAssetsBackup');
+                showToast('Local backup deleted', 'success');
+                
+            } else if (deleteScope === 'firebase') {
+                clearFirebaseData();
+                
+            } else if (deleteScope === 'all') {
+                if (confirm('⚠️ WARNING: This will delete ALL data including Firebase!\nAre you absolutely sure?')) {
+                    // Clear local data
+                    localStorage.removeItem('ctmAssetsBackup');
+                    localStorage.removeItem('ctmOfflineAssets');
+                    
+                    // Clear Firebase data if connected
+                    if (firebaseConnected) {
+                        clearFirebaseData();
+                    }
+                    
+                    showToast('All data deleted successfully', 'success');
+                }
+            }
+            
+            // Clear confirmation field
+            document.getElementById('confirmDelete').value = '';
+            updateDatabaseStats();
+        }
+
+        // ==============================================
+        // UTILITY FUNCTIONS
+        // ==============================================
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+                </div>
+                <div style="flex: 1;">
+                    <strong>${message}</strong>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode === toastContainer) {
+                        toastContainer.removeChild(toast);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // ==============================================
+        // INITIALIZATION
+        // ==============================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Initialize Firebase immediately
+            const firebaseInitialized = initializeFirebase();
+            
+            // Load from local backup
+            const backup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+            assetsDB = backup;
+            updateDatabaseStats();
+            
+            // Show welcome message
+            setTimeout(() => {
+                showToast('Firebase Management Console Ready', 'success');
+            }, 1000);
+        });
+
+        // Make functions globally available
+        window.loadAllFromFirebase = loadAllFromFirebase;
+        window.pushToFirebase = pushToFirebase;
+        window.clearLocalData = clearLocalData;
+        window.clearFirebaseData = clearFirebaseData;
+        window.configureFirebase = configureFirebase;
+        window.testFirebaseConnection = testFirebaseConnection;
+        window.showConfigurationCode = showConfigurationCode;
+        window.exportDatabase = exportDatabase;
+        window.importDatabase = importDatabase;
+        window.syncOfflineData = syncOfflineData;
+        window.rebuildIndexes = rebuildIndexes;
+        window.performDeleteOperation = performDeleteOperation;
+        
+    </script>
+</body>
+</html>

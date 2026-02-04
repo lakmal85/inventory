@@ -1,0 +1,3238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CTM IT - QR Audit Scan</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- QR Scanner -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --success-green: #10b981;
+            --warning-yellow: #fbbf24;
+            --danger-red: #ef4444;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --gradient-primary: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+            --gradient-success: linear-gradient(135deg, var(--success-green), #34d399);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--dark-gray);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--light-gray);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--medium-gray);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-blue);
+        }
+
+        /* Firebase Status */
+        .firebase-status {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+            padding: 10px 18px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            animation: slideInRight 0.5s ease;
+        }
+
+        .firebase-connected {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border: 2px solid #10b981;
+        }
+
+        .firebase-disconnected {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: 2px solid #ef4444;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            box-shadow: var(--shadow);
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--primary-blue);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 22px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .logo-text {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        .department-name {
+            font-size: 0.75rem;
+            color: var(--success-green);
+            font-weight: 600;
+        }
+
+        /* Navigation */
+        .mobile-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 1rem 0 0.5rem 0;
+            gap: 8px;
+            scrollbar-width: none;
+            margin-top: 10px;
+        }
+
+        .mobile-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 0 0 auto;
+            padding: 0.8rem 1.2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            text-decoration: none;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-tab:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--success-green), var(--primary-blue));
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1.5rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Page Header */
+        .page-header {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--primary-blue);
+            animation: slideInUp 0.6s ease;
+        }
+
+        @keyframes slideInUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .page-subtitle {
+            color: var(--medium-gray);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.3s ease;
+            border: 1px solid #e5e7eb;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+        }
+
+        /* Scanner Container */
+        .scanner-container {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            animation: slideInUp 0.7s ease;
+        }
+
+        .scanner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .scanner-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark-gray);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .scanner-wrapper {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+            border: 3px solid var(--primary-blue);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 400px;
+        }
+
+        #reader {
+            width: 100% !important;
+            height: 400px !important;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .scanner-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 280px;
+            border: 4px solid var(--success-green);
+            border-radius: 20px;
+            box-shadow: 
+                0 0 0 2px rgba(255, 255, 255, 0.1),
+                0 0 40px rgba(16, 185, 129, 0.4),
+                inset 0 0 40px rgba(16, 185, 129, 0.2);
+            animation: frameGlow 2s infinite alternate;
+        }
+
+        @keyframes frameGlow {
+            from { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1), 0 0 40px rgba(16, 185, 129, 0.4), inset 0 0 40px rgba(16, 185, 129, 0.2); }
+            to { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1), 0 0 60px rgba(16, 185, 129, 0.6), inset 0 0 60px rgba(16, 185, 129, 0.3); }
+        }
+
+        .scanner-line {
+            position: absolute;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                var(--success-green) 20%, 
+                var(--success-green) 80%, 
+                transparent 100%);
+            animation: scanLine 2s infinite ease-in-out;
+            border-radius: 2px;
+            box-shadow: 0 0 20px var(--success-green);
+        }
+
+        @keyframes scanLine {
+            0% { top: 15%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 85%; opacity: 0; }
+        }
+
+        .scanner-corners {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 280px;
+        }
+
+        .scanner-corner {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-color: var(--success-green);
+            border-width: 4px;
+        }
+
+        .corner-tl {
+            top: -2px;
+            left: -2px;
+            border-top-style: solid;
+            border-left-style: solid;
+            border-top-left-radius: 12px;
+        }
+
+        .corner-tr {
+            top: -2px;
+            right: -2px;
+            border-top-style: solid;
+            border-right-style: solid;
+            border-top-right-radius: 12px;
+        }
+
+        .corner-bl {
+            bottom: -2px;
+            left: -2px;
+            border-bottom-style: solid;
+            border-left-style: solid;
+            border-bottom-left-radius: 12px;
+        }
+
+        .corner-br {
+            bottom: -2px;
+            right: -2px;
+            border-bottom-style: solid;
+            border-right-style: solid;
+            border-bottom-right-radius: 12px;
+        }
+
+        .scanner-instructions {
+            position: absolute;
+            bottom: 25px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            z-index: 3;
+            padding: 0 1.5rem;
+            font-size: 1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            padding: 20px 0;
+        }
+
+        .scanner-instructions::before {
+            content: '📱';
+            font-size: 1.2rem;
+            margin-right: 8px;
+        }
+
+        .scanner-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* Camera Permission Modal */
+        .permission-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 1rem;
+            text-align: center;
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .permission-content {
+            background: linear-gradient(135deg, var(--white), #f8fafc);
+            border-radius: 24px;
+            padding: 3rem 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: var(--shadow-lg);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .permission-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary-blue), var(--success-green));
+        }
+
+        .permission-icon {
+            font-size: 4rem;
+            color: var(--primary-blue);
+            margin-bottom: 1.5rem;
+            animation: iconPulse 2s infinite;
+        }
+
+        @keyframes iconPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .camera-list {
+            margin-top: 1.5rem;
+            max-height: 250px;
+            overflow-y: auto;
+            border-radius: 12px;
+            background: var(--light-gray);
+            padding: 1rem;
+        }
+
+        .camera-option {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: var(--white);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .camera-option:hover {
+            border-color: var(--primary-blue);
+            transform: translateX(5px);
+            background: linear-gradient(90deg, var(--light-gray), var(--white));
+        }
+
+        .camera-option.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            border-color: var(--primary-blue);
+            box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+        }
+
+        .camera-option i {
+            font-size: 1.2rem;
+        }
+
+        /* Asset Details Card */
+        .asset-details-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            display: none;
+            animation: slideInUp 0.8s ease;
+            border-left: 6px solid var(--success-green);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .asset-details-card.visible {
+            display: block;
+        }
+
+        .asset-details-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-blue), var(--success-green));
+        }
+
+        .asset-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--light-gray);
+        }
+
+        .asset-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+        }
+
+        .asset-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .status-scanned {
+            background: linear-gradient(135deg, var(--success-green), #0ca678);
+            color: white;
+            animation: bounceIn 0.5s ease;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0.3);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .asset-info-group {
+            background: linear-gradient(135deg, var(--light-gray), #e5e7eb);
+            padding: 1.25rem;
+            border-radius: 10px;
+            border-left: 4px solid var(--secondary-blue);
+            transition: all 0.3s ease;
+        }
+
+        .asset-info-group:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow);
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        .license-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: linear-gradient(135deg, var(--success-green), #0ca678);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Audit History Styles */
+        .audit-history {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            display: none;
+        }
+
+        .audit-history.visible {
+            display: block;
+            animation: slideInUp 0.8s ease;
+        }
+
+        .audit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--light-gray);
+        }
+
+        .audit-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .audit-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* Report Generator Styles */
+        .report-generator {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            display: none;
+        }
+
+        .report-generator.visible {
+            display: block;
+            animation: slideInUp 0.8s ease;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--light-gray);
+        }
+
+        .report-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .report-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .report-filters {
+            background: linear-gradient(135deg, var(--light-gray), #e5e7eb);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--secondary-blue);
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        .filter-input {
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .filter-select {
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            margin-top: 1rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+        }
+
+        .audit-table thead {
+            background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .audit-table th {
+            padding: 1rem;
+            text-align: left;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .audit-table th:last-child {
+            border-right: none;
+        }
+
+        .audit-table tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
+        }
+
+        .audit-table tbody tr:hover {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        }
+
+        .audit-table td {
+            padding: 1rem;
+            font-size: 0.95rem;
+            color: var(--dark-gray);
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-scanned-badge {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+            color: var(--success-green);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-found-badge {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05));
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .status-missing-badge {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+            color: var(--danger-red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: var(--medium-gray);
+            font-style: italic;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.875rem 1.75rem;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 48px;
+            font-family: inherit;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--secondary-blue), #2dd4bf);
+            color: white;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-green), #0ca678);
+            color: white;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning-yellow), #f59e0b);
+            color: white;
+            box-shadow: 0 8px 25px rgba(251, 191, 36, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-red), #dc2626);
+            color: white;
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary-blue);
+            color: var(--primary-blue);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+            justify-content: center;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 1rem;
+        }
+
+        .toast {
+            background: linear-gradient(135deg, var(--white), #f8fafc);
+            padding: 1.25rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: slideInRight 0.5s ease;
+            border-left: 5px solid var(--success-green);
+            max-width: 350px;
+            min-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .toast-icon {
+            font-size: 1.5rem;
+        }
+
+        .toast-success { 
+            border-left-color: var(--success-green);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+        }
+        .toast-error { 
+            border-left-color: var(--danger-red);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+        }
+        .toast-warning { 
+            border-left-color: var(--warning-yellow);
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(251, 191, 36, 0.05));
+        }
+        .toast-info { 
+            border-left-color: var(--secondary-blue);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+        }
+
+        .toast-success .toast-icon { color: var(--success-green); }
+        .toast-error .toast-icon { color: var(--danger-red); }
+        .toast-warning .toast-icon { color: var(--warning-yellow); }
+        .toast-info .toast-icon { color: var(--secondary-blue); }
+
+        /* Loading Animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 5px solid var(--light-gray);
+            border-top: 5px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        .footer {
+            background: white;
+            padding: 2rem 1rem;
+            margin-top: 3rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .copyright {
+            color: var(--medium-gray);
+            font-size: 0.85rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0.75rem;
+            }
+
+            .logo {
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+
+            .company-name {
+                font-size: 1.1rem;
+            }
+
+            .main-container {
+                padding: 1rem;
+            }
+
+            .page-header {
+                padding: 1.5rem;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .scanner-container {
+                padding: 1.5rem;
+            }
+
+            .scanner-wrapper {
+                min-height: 350px;
+            }
+
+            #reader {
+                height: 350px !important;
+            }
+
+            .scanner-frame {
+                width: 250px;
+                height: 250px;
+            }
+
+            .scanner-corners {
+                width: 250px;
+                height: 250px;
+            }
+
+            .asset-details-card,
+            .audit-history,
+            .report-generator {
+                padding: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .scanner-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .scanner-controls {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .audit-header,
+            .report-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .audit-controls,
+            .report-controls {
+                width: 100%;
+            }
+
+            .filter-row {
+                grid-template-columns: 1fr;
+            }
+
+            .toast-container {
+                right: 20px;
+                left: 20px;
+                bottom: 20px;
+            }
+            
+            .toast {
+                max-width: 100%;
+                min-width: 0;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase Status -->
+    <div class="firebase-status firebase-disconnected" id="firebaseStatus">
+        <i class="fas fa-plug"></i>
+        <span>Connecting to Firebase...</span>
+    </div>
+
+    <!-- Camera Permission Modal -->
+    <div class="permission-modal" id="cameraPermissionModal" style="display: none;">
+        <div class="permission-content">
+            <div class="permission-icon">
+                <i class="fas fa-video"></i>
+            </div>
+            <h2 style="margin-bottom: 1rem; color: var(--primary-blue); font-weight: 800;">
+                Camera Permission Required
+            </h2>
+            <p style="margin-bottom: 1.5rem; color: var(--medium-gray); line-height: 1.6;">
+                To scan QR codes, please allow camera access in your browser. 
+                Make sure you've granted <strong>Full Camera Access</strong> permissions.
+            </p>
+            
+            <div class="camera-list" id="cameraList">
+                <p style="color: var(--medium-gray); font-style: italic;">
+                    <i class="fas fa-spinner fa-spin"></i> Detecting available cameras...
+                </p>
+            </div>
+            
+            <div class="button-group" style="margin-top: 2rem;">
+                <button class="btn btn-primary" onclick="requestCameraPermission()">
+                    <i class="fas fa-camera"></i> Allow Camera Access
+                </button>
+                <button class="btn btn-warning" onclick="hidePermissionModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+            
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 10px; border-left: 4px solid var(--success-green);">
+                <p style="color: var(--medium-gray); font-size: 0.9rem; margin: 0;">
+                    <i class="fas fa-info-circle" style="color: var(--success-green);"></i>
+                    <strong>Note:</strong> If you see "Error starting scanner. Please check camera permissions.", 
+                    please make sure to click "Allow" when your browser asks for camera access.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loader"></div>
+        <div style="color: var(--primary-blue); font-weight: 600;">Loading QR Audit System...</div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fas fa-qrcode"></i>
+            </div>
+            <div class="logo-text">
+                <div class="company-name">CTM IT Department</div>
+                <div class="department-name">QR Audit & Asset Tracking System</div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <button class="nav-tab" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-tab active" onclick="window.location.href='scanqr.html'">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='addasset.html'">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Asset</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventory.html'">
+                <i class="fas fa-boxes-stacked"></i>
+                <span>Inventory</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='firebase.html'">
+                <i class="fas fa-database"></i>
+                <span>Firebase</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='fullreport.html'">
+                <i class="fas fa-file-alt"></i>
+                <span>Full Report</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventorymap.html'">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Map</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">QR Code Scanner</h1>
+            <p class="page-subtitle">
+                Scan asset QR codes to retrieve real-time information from Firebase Database. 
+                Live updates ensure you always have the latest asset information.
+            </p>
+        </div>
+
+        <!-- Stats Dashboard -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: var(--gradient-primary);">
+                    <i class="fas fa-qrcode"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value" id="totalAssets">0</div>
+                    <div class="stat-label">Total Assets</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: var(--gradient-success);">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value" id="scannedToday">0</div>
+                    <div class="stat-label">Scanned Today</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value" id="pendingAudit">0</div>
+                    <div class="stat-label">Pending Audit</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value" id="missingAssets">0</div>
+                    <div class="stat-label">Missing Assets</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Scanner Section -->
+        <div class="scanner-container">
+            <div class="scanner-header">
+                <h2 class="scanner-title">
+                    <i class="fas fa-camera"></i>
+                    Asset QR Code Scanner
+                </h2>
+                <div class="scanner-controls">
+                    <button class="btn btn-primary" id="startScanner">
+                        <i class="fas fa-play-circle"></i> Start Scanner
+                    </button>
+                    <button class="btn btn-secondary" id="stopScanner" disabled>
+                        <i class="fas fa-stop-circle"></i> Stop Scanner
+                    </button>
+                    <button class="btn btn-warning" onclick="switchCamera()">
+                        <i class="fas fa-camera-retro"></i> Select Camera
+                    </button>
+                </div>
+            </div>
+
+            <div class="scanner-wrapper">
+                <div id="reader"></div>
+                <div class="scanner-overlay">
+                    <div class="scanner-frame"></div>
+                    <div class="scanner-line"></div>
+                    <div class="scanner-corners">
+                        <div class="scanner-corner corner-tl"></div>
+                        <div class="scanner-corner corner-tr"></div>
+                        <div class="scanner-corner corner-bl"></div>
+                        <div class="scanner-corner corner-br"></div>
+                    </div>
+                </div>
+                <div class="scanner-instructions">
+                    Point your camera at a QR code. Ensure good lighting for better detection.
+                </div>
+            </div>
+
+            <div class="scanner-controls">
+                <button class="btn btn-success" onclick="manualScan()">
+                    <i class="fas fa-keyboard"></i> Manual Entry
+                </button>
+                <button class="btn btn-primary" onclick="scanFromFile()">
+                    <i class="fas fa-upload"></i> Scan from Image
+                </button>
+                <button class="btn btn-info" onclick="testVoice()">
+                    <i class="fas fa-volume-up"></i> Test Voice
+                </button>
+                <button class="btn btn-secondary" onclick="showAuditHistory()">
+                    <i class="fas fa-history"></i> View Audit History
+                </button>
+                <button class="btn btn-warning" onclick="showReportGenerator()">
+                    <i class="fas fa-file-export"></i> Generate Report
+                </button>
+            </div>
+
+            <div id="scanResult" style="display: none; margin-top: 1.5rem; padding: 1.5rem; background: linear-gradient(135deg, var(--light-gray), #e5e7eb); border-radius: 12px; border: 2px solid var(--success-green);">
+                <div style="color: var(--success-green); font-weight: 700; margin-bottom: 1rem; font-size: 1.1rem;">
+                    <i class="fas fa-database"></i> Fetching from Firebase...
+                </div>
+                <div id="scannedData" style="font-family: 'Courier New', monospace; word-break: break-all; padding: 1rem; background: rgba(255,255,255,0.9); border-radius: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- Asset Details Display -->
+        <div class="asset-details-card" id="assetDetailsCard">
+            <div class="asset-header">
+                <h2 class="asset-title">Asset Details</h2>
+                <div class="asset-status status-scanned" id="assetStatus">
+                    <i class="fas fa-check-circle"></i> SCANNED SUCCESSFULLY
+                </div>
+            </div>
+
+            <div class="asset-grid" id="assetDetailsGrid">
+                <!-- Asset details will be populated here -->
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-success" onclick="markAsFound()">
+                    <i class="fas fa-check"></i> Mark as Found
+                </button>
+                <button class="btn btn-warning" onclick="markAsMissing()">
+                    <i class="fas fa-times"></i> Mark as Missing
+                </button>
+                <button class="btn btn-primary" onclick="generateAssetReport()">
+                    <i class="fas fa-file-pdf"></i> Generate Report
+                </button>
+                <button class="btn btn-secondary" onclick="speakAssetDetails()">
+                    <i class="fas fa-volume-up"></i> Speak Details
+                </button>
+                <button class="btn btn-outline" onclick="closeAssetDetails()">
+                    <i class="fas fa-times"></i> Close Details
+                </button>
+            </div>
+        </div>
+
+        <!-- Audit History Section -->
+        <div class="audit-history" id="auditHistory">
+            <div class="audit-header">
+                <h2 class="audit-title">
+                    <i class="fas fa-history"></i> Audit History
+                </h2>
+                <div class="audit-controls">
+                    <button class="btn btn-primary" onclick="loadAuditHistory()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <button class="btn btn-success" onclick="exportAuditToCSV()">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
+                    <button class="btn btn-warning" onclick="clearAuditHistory()">
+                        <i class="fas fa-trash"></i> Clear History
+                    </button>
+                    <button class="btn btn-outline" onclick="hideAuditHistory()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="audit-table" id="auditTable">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User Name</th>
+                            <th>Asset Tag</th>
+                            <th>Asset Type</th>
+                            <th>Brand/Model</th>
+                            <th>Serial Number</th>
+                            <th>Department</th>
+                            <th>Last Scan Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditTableBody">
+                        <tr>
+                            <td colspan="9" class="no-data">
+                                <i class="fas fa-spinner fa-spin"></i> Loading audit history...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Report Generator Section -->
+        <div class="report-generator" id="reportGenerator">
+            <div class="report-header">
+                <h2 class="report-title">
+                    <i class="fas fa-file-export"></i> Audit Report Generator
+                </h2>
+                <div class="report-controls">
+                    <button class="btn btn-primary" onclick="generateReport()">
+                        <i class="fas fa-play"></i> Generate Report
+                    </button>
+                    <button class="btn btn-success" onclick="exportReportToCSV()">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
+                    <button class="btn btn-warning" onclick="printReport()">
+                        <i class="fas fa-print"></i> Print Report
+                    </button>
+                    <button class="btn btn-outline" onclick="hideReportGenerator()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+
+            <div class="report-filters">
+                <h3 style="margin-bottom: 1rem; color: var(--dark-gray);">Report Filters</h3>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label class="filter-label">Date Range</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="date" id="startDate" class="filter-input" style="flex: 1;">
+                            <span style="align-self: center;">to</span>
+                            <input type="date" id="endDate" class="filter-input" style="flex: 1;">
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Department</label>
+                        <select id="departmentFilter" class="filter-select">
+                            <option value="">All Departments</option>
+                            <option value="IT">IT Department</option>
+                            <option value="HR">Human Resources</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Operations">Operations</option>
+                            <option value="Marketing">Marketing</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Asset Type</label>
+                        <select id="assetTypeFilter" class="filter-select">
+                            <option value="">All Asset Types</option>
+                            <option value="Laptop">Laptop</option>
+                            <option value="Desktop">Desktop</option>
+                            <option value="Monitor">Monitor</option>
+                            <option value="Printer">Printer</option>
+                            <option value="Tablet">Tablet</option>
+                            <option value="Phone">Phone</option>
+                            <option value="Server">Server</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label class="filter-label">Status</label>
+                        <select id="statusFilter" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="SCANNED">Scanned</option>
+                            <option value="FOUND">Found</option>
+                            <option value="MISSING">Missing</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">User Name</label>
+                        <input type="text" id="userFilter" class="filter-input" placeholder="Filter by user...">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Results Limit</label>
+                        <select id="limitFilter" class="filter-select">
+                            <option value="50">50 Records</option>
+                            <option value="100">100 Records</option>
+                            <option value="250">250 Records</option>
+                            <option value="500">500 Records</option>
+                            <option value="1000">1000 Records</option>
+                            <option value="">All Records</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="audit-table" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User Name</th>
+                            <th>Asset Tag</th>
+                            <th>Asset Type</th>
+                            <th>Brand/Model</th>
+                            <th>Serial Number</th>
+                            <th>Department</th>
+                            <th>Last Scan Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportTableBody">
+                        <tr>
+                            <td colspan="9" class="no-data">
+                                <i class="fas fa-chart-bar"></i> Generate report to view data
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="reportStats" style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, var(--light-gray), #e5e7eb); border-radius: 12px; display: none;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-blue);" id="reportTotal">0</div>
+                        <div style="font-size: 0.85rem; color: var(--medium-gray);">Total Records</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--success-green);" id="reportScanned">0</div>
+                        <div style="font-size: 0.85rem; color: var(--medium-gray);">Scanned</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #22c55e;" id="reportFound">0</div>
+                        <div style="font-size: 0.85rem; color: var(--medium-gray);">Found</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger-red);" id="reportMissing">0</div>
+                        <div style="font-size: 0.85rem; color: var(--medium-gray);">Missing</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">CTM IT Department - QR Code Scanner System</div>
+            <div class="copyright">
+                &copy; 2026 Professional Asset Management powered by Firebase Realtime Database
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==============================================
+        // FIREBASE CONFIGURATION
+        // ==============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyABuZWbNXGJ359mbctDsX-SSxwkUd3v1KY",
+            authDomain: "student-management-syste-d39a3.firebaseapp.com",
+            databaseURL: "https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "student-management-syste-d39a3",
+            storageBucket: "student-management-syste-d39a3.firebasestorage.app",
+            messagingSenderId: "36925529487",
+            appId: "1:36925529487:web:385e1af7ba174f8440fffa"
+        };
+
+        // ==============================================
+        // GLOBAL VARIABLES
+        // ==============================================
+        let firebaseApp;
+        let database;
+        let assetsRef;
+        let auditLogsRef;
+        let connectionRef;
+        let isFirebaseInitialized = false;
+        let firebaseConnected = false;
+        let html5QrCode;
+        let currentCameraId = null;
+        let availableCameras = [];
+        let allAssets = [];
+        let auditHistory = [];
+        let filteredAuditHistory = [];
+        let voiceAvailable = false;
+        let femaleVoice = null;
+        let lastScannedCode = null;
+        let currentUser = 'Audit User';
+
+        // ==============================================
+        // TEXT-TO-SPEECH FUNCTIONS
+        // ==============================================
+        function initializeVoice() {
+            if ('speechSynthesis' in window) {
+                voiceAvailable = true;
+                
+                speechSynthesis.onvoiceschanged = function() {
+                    const voices = speechSynthesis.getVoices();
+                    
+                    // Try to find a female voice
+                    femaleVoice = voices.find(voice => 
+                        voice.lang.includes('en') && 
+                        (voice.name.toLowerCase().includes('female') || 
+                         voice.name.toLowerCase().includes('zira') || 
+                         voice.name.toLowerCase().includes('samantha'))
+                    );
+                    
+                    // If no female voice found, use first available English voice
+                    if (!femaleVoice) {
+                        femaleVoice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+                    }
+                    
+                    console.log('Voice synthesis ready:', femaleVoice?.name || 'Default voice');
+                };
+                
+                // Force voices to load
+                speechSynthesis.getVoices();
+                
+            } else {
+                console.warn('Text-to-speech not supported');
+            }
+        }
+
+        function speakText(text, rate = 1.0, pitch = 1.1) {
+            if (!voiceAvailable) return;
+            
+            try {
+                speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = rate;
+                utterance.pitch = pitch;
+                utterance.volume = 1.0;
+                
+                if (femaleVoice) {
+                    utterance.voice = femaleVoice;
+                }
+                
+                utterance.onend = function() {
+                    console.log('Speech completed');
+                };
+                
+                utterance.onerror = function(event) {
+                    console.error('Speech error:', event);
+                };
+                
+                speechSynthesis.speak(utterance);
+                
+            } catch (error) {
+                console.error('Text-to-speech error:', error);
+            }
+        }
+
+        function speakAssetDetails() {
+            if (!voiceAvailable) {
+                showToast('Voice synthesis not available', 'warning');
+                return;
+            }
+            
+            const assetTag = document.querySelector('.asset-info-group .info-value')?.textContent;
+            if (!assetTag) return;
+            
+            const asset = findAssetByTag(assetTag);
+            if (!asset) return;
+            
+            let speechText = `Asset found. ${asset.assetTag}. `;
+            speechText += `Type: ${asset.assetType || 'Unknown'}. `;
+            speechText += `Status: ${asset.status || 'Unknown'}. `;
+            
+            if (asset.assignedTo) {
+                speechText += `Assigned to: ${asset.assignedTo}. `;
+            }
+            
+            if (asset.location) {
+                speechText += `Location: ${asset.location}. `;
+            }
+            
+            if (asset.department) {
+                speechText += `Department: ${asset.department}. `;
+            }
+            
+            speakText(speechText, 0.9, 1.1);
+        }
+
+        function testVoice() {
+            if (voiceAvailable) {
+                speakText("QR code scanner is ready. Point camera at asset QR code to scan.");
+                showToast('Voice test successful', 'success');
+            } else {
+                showToast('Voice synthesis not available', 'warning');
+            }
+        }
+
+        // ==============================================
+        // AUDIO FUNCTIONS (BEEP SOUND)
+        // ==============================================
+        function playBeepSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 1000;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+                
+            } catch (error) {
+                console.error('Beep sound error:', error);
+                try {
+                    const beepAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
+                    beepAudio.play();
+                } catch (e) {
+                    console.error('Fallback beep failed:', e);
+                }
+            }
+        }
+
+        // ==============================================
+        // INITIALIZATION
+        // ==============================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            showLoading();
+            
+            // Initialize Firebase
+            await initializeFirebase();
+            
+            // Initialize voice synthesis
+            initializeVoice();
+            
+            // Initialize QR Scanner
+            initializeQrScanner();
+            
+            // Load initial data
+            await loadAllAssets();
+            updateStats();
+            
+            // Load audit history
+            await loadAuditHistory();
+            
+            // Detect cameras
+            setTimeout(() => {
+                detectCameras();
+            }, 1000);
+            
+            hideLoading();
+            
+            showToast('QR Scanner System Ready', 'success');
+        });
+
+        // ==============================================
+        // FIREBASE FUNCTIONS
+        // ==============================================
+        async function initializeFirebase() {
+            try {
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                } else {
+                    firebaseApp = firebase.app();
+                }
+                
+                database = firebase.database();
+                isFirebaseInitialized = true;
+                
+                assetsRef = database.ref('assets');
+                auditLogsRef = database.ref('auditLogs');
+                connectionRef = database.ref('.info/connected');
+                
+                // Monitor connection status
+                connectionRef.on('value', (snapshot) => {
+                    firebaseConnected = snapshot.val();
+                    updateConnectionStatus(firebaseConnected);
+                    
+                    if (firebaseConnected) {
+                        showToast('Connected to Firebase Database', 'success');
+                    } else {
+                        showToast('Working offline. Data will sync when connection is restored.', 'warning');
+                    }
+                });
+                
+                return true;
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showToast(`Firebase connection error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const firebaseStatus = document.getElementById('firebaseStatus');
+            
+            if (connected) {
+                firebaseStatus.className = 'firebase-status firebase-connected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Connected to Firebase</span>';
+                firebaseStatus.style.animation = 'slideInRight 0.5s ease';
+            } else {
+                firebaseStatus.className = 'firebase-status firebase-disconnected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Disconnected from Firebase</span>';
+                firebaseStatus.style.animation = 'slideInRight 0.5s ease';
+            }
+        }
+
+        // ==============================================
+        // ASSET MANAGEMENT FUNCTIONS
+        // ==============================================
+        async function loadAllAssets() {
+            try {
+                showLoading();
+                
+                if (firebaseConnected) {
+                    const snapshot = await assetsRef.once('value');
+                    const assets = snapshot.val();
+                    
+                    allAssets = [];
+                    if (assets) {
+                        Object.keys(assets).forEach(key => {
+                            const asset = assets[key];
+                            asset.firebaseId = key;
+                            allAssets.push(asset);
+                        });
+                    }
+                    
+                    // Save to localStorage for offline use
+                    localStorage.setItem('ctmAllAssets', JSON.stringify(allAssets));
+                } else {
+                    // Load from localStorage
+                    const savedAssets = localStorage.getItem('ctmAllAssets');
+                    allAssets = savedAssets ? JSON.parse(savedAssets) : [];
+                }
+                
+                updateStats();
+                hideLoading();
+                
+            } catch (error) {
+                console.error('Error loading assets:', error);
+                showToast('Error loading assets', 'error');
+                hideLoading();
+            }
+        }
+
+        function findAssetByTag(assetTag) {
+            return allAssets.find(asset => asset.assetTag === assetTag);
+        }
+
+        function findAssetBySerial(serialNumber) {
+            return allAssets.find(asset => asset.serialNumber === serialNumber);
+        }
+
+        // ==============================================
+        // AUDIT HISTORY FUNCTIONS
+        // ==============================================
+        async function loadAuditHistory() {
+            try {
+                showLoading();
+                
+                if (firebaseConnected) {
+                    const snapshot = await auditLogsRef.orderByChild('timestamp').limitToLast(500).once('value');
+                    const logs = snapshot.val();
+                    
+                    auditHistory = [];
+                    if (logs) {
+                        Object.keys(logs).forEach(key => {
+                            const log = logs[key];
+                            auditHistory.unshift(log); // Add to beginning for chronological order
+                        });
+                    }
+                    
+                    // Save to localStorage for offline use
+                    localStorage.setItem('ctmAuditHistory', JSON.stringify(auditHistory));
+                } else {
+                    // Load from localStorage
+                    const savedHistory = localStorage.getItem('ctmAuditHistory');
+                    auditHistory = savedHistory ? JSON.parse(savedHistory) : [];
+                }
+                
+                // Update table if visible
+                if (document.getElementById('auditHistory').classList.contains('visible')) {
+                    populateAuditTable();
+                }
+                
+                hideLoading();
+                showToast('Audit history loaded successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error loading audit history:', error);
+                showToast('Error loading audit history', 'error');
+                hideLoading();
+            }
+        }
+
+        function populateAuditTable() {
+            const tableBody = document.getElementById('auditTableBody');
+            
+            if (!auditHistory || auditHistory.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="no-data">
+                            <i class="fas fa-database"></i> No audit history found
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let tableHTML = '';
+            
+            auditHistory.forEach(log => {
+                const timestamp = new Date(log.timestamp || log.date);
+                const formattedDate = timestamp.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const lastScanDate = new Date(log.lastScanDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                let statusClass = 'status-scanned-badge';
+                if (log.status === 'FOUND') {
+                    statusClass = 'status-found-badge';
+                } else if (log.status === 'MISSING') {
+                    statusClass = 'status-missing-badge';
+                }
+                
+                tableHTML += `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        <td>${log.userName || currentUser}</td>
+                        <td><strong>${log.assetTag}</strong></td>
+                        <td>${log.assetType || 'N/A'}</td>
+                        <td>${log.brandModel || 'N/A'}</td>
+                        <td>${log.serialNumber || 'N/A'}</td>
+                        <td>${log.department || 'N/A'}</td>
+                        <td>${lastScanDate}</td>
+                        <td>
+                            <span class="status-badge ${statusClass}">
+                                ${log.status || 'SCANNED'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = tableHTML;
+        }
+
+        function filterAuditHistory() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const department = document.getElementById('departmentFilter').value;
+            const assetType = document.getElementById('assetTypeFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const user = document.getElementById('userFilter').value.toLowerCase();
+            const limit = parseInt(document.getElementById('limitFilter').value) || 0;
+            
+            filteredAuditHistory = auditHistory.filter(log => {
+                const logDate = new Date(log.timestamp || log.date);
+                const logDateStr = logDate.toISOString().split('T')[0];
+                
+                // Date filter
+                if (startDate && logDateStr < startDate) return false;
+                if (endDate && logDateStr > endDate) return false;
+                
+                // Department filter
+                if (department && log.department !== department) return false;
+                
+                // Asset type filter
+                if (assetType && log.assetType !== assetType) return false;
+                
+                // Status filter
+                if (status && log.status !== status) return false;
+                
+                // User filter
+                if (user && !(log.userName || currentUser).toLowerCase().includes(user)) return false;
+                
+                return true;
+            });
+            
+            // Apply limit
+            if (limit > 0) {
+                filteredAuditHistory = filteredAuditHistory.slice(0, limit);
+            }
+            
+            return filteredAuditHistory;
+        }
+
+        function populateReportTable() {
+            const tableBody = document.getElementById('reportTableBody');
+            
+            if (!filteredAuditHistory || filteredAuditHistory.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="no-data">
+                            <i class="fas fa-search"></i> No records match the selected filters
+                        </td>
+                    </tr>
+                `;
+                
+                document.getElementById('reportStats').style.display = 'none';
+                return;
+            }
+            
+            let tableHTML = '';
+            
+            filteredAuditHistory.forEach(log => {
+                const timestamp = new Date(log.timestamp || log.date);
+                const formattedDate = timestamp.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const lastScanDate = new Date(log.lastScanDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                let statusClass = 'status-scanned-badge';
+                if (log.status === 'FOUND') {
+                    statusClass = 'status-found-badge';
+                } else if (log.status === 'MISSING') {
+                    statusClass = 'status-missing-badge';
+                }
+                
+                tableHTML += `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        <td>${log.userName || currentUser}</td>
+                        <td><strong>${log.assetTag}</strong></td>
+                        <td>${log.assetType || 'N/A'}</td>
+                        <td>${log.brandModel || 'N/A'}</td>
+                        <td>${log.serialNumber || 'N/A'}</td>
+                        <td>${log.department || 'N/A'}</td>
+                        <td>${lastScanDate}</td>
+                        <td>
+                            <span class="status-badge ${statusClass}">
+                                ${log.status || 'SCANNED'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = tableHTML;
+            
+            // Update report statistics
+            updateReportStats();
+        }
+
+        function updateReportStats() {
+            const total = filteredAuditHistory.length;
+            const scanned = filteredAuditHistory.filter(log => log.status === 'SCANNED').length;
+            const found = filteredAuditHistory.filter(log => log.status === 'FOUND').length;
+            const missing = filteredAuditHistory.filter(log => log.status === 'MISSING').length;
+            
+            document.getElementById('reportTotal').textContent = total;
+            document.getElementById('reportScanned').textContent = scanned;
+            document.getElementById('reportFound').textContent = found;
+            document.getElementById('reportMissing').textContent = missing;
+            
+            document.getElementById('reportStats').style.display = 'block';
+        }
+
+        // ==============================================
+        // EXPORT FUNCTIONS
+        // ==============================================
+        function exportAuditToCSV() {
+            if (!auditHistory || auditHistory.length === 0) {
+                showToast('No audit data to export', 'warning');
+                return;
+            }
+            
+            const csvContent = convertToCSV(auditHistory);
+            downloadCSV(csvContent, `audit_history_${new Date().toISOString().split('T')[0]}.csv`);
+            showToast('Audit history exported to CSV', 'success');
+        }
+
+        function exportReportToCSV() {
+            if (!filteredAuditHistory || filteredAuditHistory.length === 0) {
+                showToast('No report data to export', 'warning');
+                return;
+            }
+            
+            const csvContent = convertToCSV(filteredAuditHistory);
+            downloadCSV(csvContent, `audit_report_${new Date().toISOString().split('T')[0]}.csv`);
+            showToast('Report exported to CSV', 'success');
+        }
+
+        function convertToCSV(data) {
+            if (!data || data.length === 0) return '';
+            
+            // Define headers
+            const headers = [
+                'Timestamp',
+                'User Name',
+                'Asset Tag',
+                'Asset Type',
+                'Brand/Model',
+                'Serial Number',
+                'Department',
+                'Purchase Date',
+                'Last Scan Date',
+                'Status',
+                'Location',
+                'Assigned To'
+            ];
+            
+            // Create CSV rows
+            const rows = data.map(item => {
+                const timestamp = new Date(item.timestamp || item.date);
+                const formattedDate = timestamp.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                return [
+                    `"${formattedDate}"`,
+                    `"${item.userName || currentUser}"`,
+                    `"${item.assetTag || ''}"`,
+                    `"${item.assetType || ''}"`,
+                    `"${item.brandModel || ''}"`,
+                    `"${item.serialNumber || ''}"`,
+                    `"${item.department || ''}"`,
+                    `"${item.purchaseDate || ''}"`,
+                    `"${item.lastScanDate || ''}"`,
+                    `"${item.status || ''}"`,
+                    `"${item.location || ''}"`,
+                    `"${item.assignedTo || ''}"`
+                ].join(',');
+            });
+            
+            // Combine headers and rows
+            return [headers.join(','), ...rows].join('\n');
+        }
+
+        function downloadCSV(csvContent, filename) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // ==============================================
+        // REPORT GENERATION FUNCTIONS
+        // ==============================================
+        function generateReport() {
+            const filteredData = filterAuditHistory();
+            populateReportTable();
+            showToast(`Report generated with ${filteredData.length} records`, 'success');
+        }
+
+        function printReport() {
+            if (!filteredAuditHistory || filteredAuditHistory.length === 0) {
+                showToast('No data to print', 'warning');
+                return;
+            }
+            
+            const printWindow = window.open('', '_blank');
+            const printDate = new Date().toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            let printHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>CTM IT - Audit Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                        .company-name { font-size: 24px; font-weight: bold; color: #1e3a8a; }
+                        .report-title { font-size: 20px; color: #333; margin: 10px 0; }
+                        .report-date { color: #666; font-size: 14px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th { background-color: #1e3a8a; color: white; padding: 10px; text-align: left; }
+                        td { padding: 8px; border-bottom: 1px solid #ddd; }
+                        .stats { display: flex; justify-content: space-between; margin: 20px 0; padding: 15px; background-color: #f5f5f5; }
+                        .stat-item { text-align: center; }
+                        .stat-value { font-size: 24px; font-weight: bold; }
+                        .stat-label { font-size: 12px; color: #666; }
+                        @media print {
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="company-name">CTM IT Department</div>
+                        <div class="report-title">Asset Audit Report</div>
+                        <div class="report-date">Generated: ${printDate}</div>
+                    </div>
+                    
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${filteredAuditHistory.length}</div>
+                            <div class="stat-label">Total Records</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${filteredAuditHistory.filter(log => log.status === 'SCANNED').length}</div>
+                            <div class="stat-label">Scanned</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${filteredAuditHistory.filter(log => log.status === 'FOUND').length}</div>
+                            <div class="stat-label">Found</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${filteredAuditHistory.filter(log => log.status === 'MISSING').length}</div>
+                            <div class="stat-label">Missing</div>
+                        </div>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User Name</th>
+                                <th>Asset Tag</th>
+                                <th>Asset Type</th>
+                                <th>Brand/Model</th>
+                                <th>Serial Number</th>
+                                <th>Department</th>
+                                <th>Last Scan Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            filteredAuditHistory.forEach(log => {
+                const timestamp = new Date(log.timestamp || log.date);
+                const formattedDate = timestamp.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const lastScanDate = new Date(log.lastScanDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                printHTML += `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        <td>${log.userName || currentUser}</td>
+                        <td>${log.assetTag}</td>
+                        <td>${log.assetType || 'N/A'}</td>
+                        <td>${log.brandModel || 'N/A'}</td>
+                        <td>${log.serialNumber || 'N/A'}</td>
+                        <td>${log.department || 'N/A'}</td>
+                        <td>${lastScanDate}</td>
+                        <td>${log.status || 'SCANNED'}</td>
+                    </tr>
+                `;
+            });
+            
+            printHTML += `
+                        </tbody>
+                    </table>
+                    
+                    <div style="margin-top: 30px; font-size: 12px; color: #666; text-align: center;">
+                        <div>Report generated by CTM IT Audit System</div>
+                        <div>${window.location.href}</div>
+                    </div>
+                    
+                    <div class="no-print" style="margin-top: 20px; text-align: center;">
+                        <button onclick="window.print()" style="padding: 10px 20px; background: #1e3a8a; color: white; border: none; cursor: pointer;">Print Report</button>
+                        <button onclick="window.close()" style="padding: 10px 20px; background: #666; color: white; border: none; cursor: pointer; margin-left: 10px;">Close</button>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+        }
+
+        // ==============================================
+        // UI MANAGEMENT FUNCTIONS
+        // ==============================================
+        function showAuditHistory() {
+            document.getElementById('auditHistory').classList.add('visible');
+            document.getElementById('reportGenerator').classList.remove('visible');
+            document.getElementById('assetDetailsCard').classList.remove('visible');
+            
+            if (auditHistory.length === 0) {
+                loadAuditHistory();
+            } else {
+                populateAuditTable();
+            }
+            
+            document.getElementById('auditHistory').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideAuditHistory() {
+            document.getElementById('auditHistory').classList.remove('visible');
+        }
+
+        function showReportGenerator() {
+            document.getElementById('reportGenerator').classList.add('visible');
+            document.getElementById('auditHistory').classList.remove('visible');
+            document.getElementById('assetDetailsCard').classList.remove('visible');
+            
+            // Set default date range (last 30 days)
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            
+            document.getElementById('reportGenerator').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideReportGenerator() {
+            document.getElementById('reportGenerator').classList.remove('visible');
+        }
+
+        function clearAuditHistory() {
+            if (confirm('Are you sure you want to clear all audit history? This action cannot be undone.')) {
+                if (firebaseConnected) {
+                    showLoading();
+                    auditLogsRef.remove()
+                        .then(() => {
+                            auditHistory = [];
+                            localStorage.removeItem('ctmAuditHistory');
+                            populateAuditTable();
+                            hideLoading();
+                            showToast('Audit history cleared successfully', 'success');
+                        })
+                        .catch(error => {
+                            hideLoading();
+                            showToast('Error clearing audit history', 'error');
+                        });
+                } else {
+                    auditHistory = [];
+                    localStorage.removeItem('ctmAuditHistory');
+                    populateAuditTable();
+                    showToast('Local audit history cleared', 'success');
+                }
+            }
+        }
+
+        // ==============================================
+        // CAMERA FUNCTIONS
+        // ==============================================
+        async function detectCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                availableCameras = devices.filter(device => device.kind === 'videoinput');
+                
+                const cameraList = document.getElementById('cameraList');
+                if (cameraList) {
+                    cameraList.innerHTML = '';
+                    
+                    if (availableCameras.length === 0) {
+                        cameraList.innerHTML = '<p style="color: var(--danger-red); font-weight: 600;">No cameras detected on this device.</p>';
+                        return false;
+                    }
+                    
+                    availableCameras.forEach((camera, index) => {
+                        const cameraOption = document.createElement('div');
+                        cameraOption.className = 'camera-option';
+                        cameraOption.innerHTML = `
+                            <i class="fas fa-video"></i>
+                            <span>${camera.label || `Camera ${index + 1}`}</span>
+                        `;
+                        cameraOption.onclick = () => selectSpecificCamera(camera.deviceId);
+                        
+                        if (index === 0 && !currentCameraId) {
+                            currentCameraId = camera.deviceId;
+                            cameraOption.classList.add('active');
+                        } else if (camera.deviceId === currentCameraId) {
+                            cameraOption.classList.add('active');
+                        }
+                        
+                        cameraList.appendChild(cameraOption);
+                    });
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Camera detection error:', error);
+                return false;
+            }
+        }
+
+        async function requestCameraPermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Now detect available cameras
+                await detectCameras();
+                
+                hidePermissionModal();
+                showToast('Camera permission granted!', 'success');
+                
+                // Auto-start scanner after permission
+                setTimeout(() => {
+                    if (!html5QrCode?.isScanning) {
+                        startScanner();
+                    }
+                }, 1000);
+                
+                return true;
+                
+            } catch (error) {
+                let errorMessage = '';
+                if (error.name === 'NotAllowedError' || error.message.includes('permission')) {
+                    errorMessage = 'Camera access was denied. Please go to browser settings and allow camera access for this site.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = 'No camera found on this device.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage = 'Camera is already in use by another application.';
+                } else if (error.name === 'OverconstrainedError') {
+                    errorMessage = 'Camera constraints cannot be satisfied. Trying different camera...';
+                    // Try with simpler constraints
+                    try {
+                        const simpleStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        simpleStream.getTracks().forEach(track => track.stop());
+                        await detectCameras();
+                        hidePermissionModal();
+                        showToast('Camera permission granted with basic settings', 'success');
+                        return true;
+                    } catch (simpleError) {
+                        errorMessage = `Camera error: ${simpleError.message}`;
+                    }
+                } else {
+                    errorMessage = `Camera error: ${error.message}`;
+                }
+                
+                showToast(errorMessage, 'error');
+                return false;
+            }
+        }
+
+        function selectCamera() {
+            if (html5QrCode?.isScanning) {
+                stopScanner();
+            }
+            showPermissionModal();
+        }
+
+        function selectSpecificCamera(cameraId) {
+            currentCameraId = cameraId;
+            document.querySelectorAll('.camera-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            event.target.closest('.camera-option').classList.add('active');
+            showToast('Camera selected. Restart scanner to apply.', 'info');
+        }
+
+        function showPermissionModal() {
+            detectCameras().then(hasCameras => {
+                if (!hasCameras) {
+                    showToast('No cameras found. Using default camera.', 'warning');
+                }
+                document.getElementById('cameraPermissionModal').style.display = 'flex';
+            });
+        }
+
+        function hidePermissionModal() {
+            document.getElementById('cameraPermissionModal').style.display = 'none';
+        }
+
+        // ==============================================
+        // QR SCANNER FUNCTIONS
+        // ==============================================
+        function initializeQrScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            
+            // Set up scanner buttons
+            document.getElementById('startScanner').addEventListener('click', startScanner);
+            document.getElementById('stopScanner').addEventListener('click', stopScanner);
+        }
+
+        async function startScanner() {
+            try {
+                const config = {
+                    fps: 15,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
+                    disableFlip: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    },
+                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+                };
+                
+                let cameraConfig = currentCameraId || { facingMode: "environment" };
+                
+                await html5QrCode.start(
+                    cameraConfig,
+                    config,
+                    onScanSuccess,
+                    onScanError
+                );
+                
+                document.getElementById('startScanner').disabled = true;
+                document.getElementById('stopScanner').disabled = false;
+                
+                showToast('QR Scanner started successfully', 'success');
+            } catch (error) {
+                console.error('Error starting scanner:', error);
+                
+                if (error.message.includes('NotAllowedError') || 
+                    error.name === 'NotAllowedError' ||
+                    error.message.includes('Permission denied') ||
+                    error.message.includes('permission')) {
+                    
+                    showToast('Camera access denied. Please allow camera permissions.', 'error');
+                    showPermissionModal();
+                    
+                } else if (error.message.includes('NotFoundError') || 
+                          error.name === 'NotFoundError') {
+                    
+                    showToast('No camera found on this device.', 'error');
+                    
+                } else if (error.message.includes('NotReadableError') || 
+                          error.name === 'NotReadableError') {
+                    
+                    showToast('Camera is already in use by another application.', 'error');
+                    
+                } else if (error.message.includes('OverconstrainedError')) {
+                    
+                    showToast('Camera constraints cannot be satisfied. Please try a different camera.', 'error');
+                    showPermissionModal();
+                    
+                } else {
+                    showToast(`Scanner error: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function stopScanner() {
+            if (!html5QrCode || !html5QrCode.isScanning) return;
+            
+            html5QrCode.stop()
+                .then(() => {
+                    document.getElementById('startScanner').disabled = false;
+                    document.getElementById('stopScanner').disabled = true;
+                    showToast('QR Scanner stopped', 'info');
+                })
+                .catch(error => {
+                    console.error('Error stopping scanner:', error);
+                });
+        }
+
+        function switchCamera() {
+            selectCamera();
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            if (lastScannedCode === decodedText) {
+                console.log('Duplicate scan detected, ignoring');
+                return;
+            }
+            
+            lastScannedCode = decodedText;
+            
+            // Play beep sound
+            playBeepSound();
+            
+            // Stop scanner temporarily
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.pause();
+            }
+            
+            // Process scanned asset
+            processScannedAsset(decodedText);
+            
+            // Reset duplicate detection after 3 seconds
+            setTimeout(() => {
+                lastScannedCode = null;
+            }, 3000);
+            
+            // Resume scanner after 2 seconds
+            setTimeout(() => {
+                if (html5QrCode && !html5QrCode.isScanning) {
+                    html5QrCode.resume();
+                }
+            }, 2000);
+        }
+
+        function onScanError(error) {
+            // Suppress console spam for expected errors
+            if (!error.includes('NotFoundException')) {
+                console.warn('QR Scan Error:', error);
+            }
+        }
+
+        function manualScan() {
+            const assetTag = prompt('Enter Asset Tag Number:');
+            if (assetTag) {
+                processScannedAsset(assetTag);
+            }
+        }
+
+        function scanFromFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        showLoading();
+                        const result = await html5QrCode.scanFile(file, true);
+                        processScannedAsset(result);
+                        hideLoading();
+                    } catch (error) {
+                        console.error('Error scanning file:', error);
+                        showToast('Could not read QR code from image', 'error');
+                        hideLoading();
+                    }
+                }
+            };
+            
+            input.click();
+        }
+
+        // ==============================================
+        // ASSET PROCESSING FUNCTIONS
+        // ==============================================
+        async function processScannedAsset(assetTag) {
+            try {
+                showLoading();
+                
+                document.getElementById('scanResult').style.display = 'block';
+                document.getElementById('scannedData').innerHTML = `
+                    <div style="color: var(--success-green);">
+                        <i class="fas fa-check-circle"></i> 
+                        <strong>QR Code Scanned:</strong> ${assetTag}
+                    </div>
+                    <div style="margin-top: 0.5rem; color: var(--medium-gray);">
+                        <i class="fas fa-spinner fa-spin"></i> Fetching asset details...
+                    </div>
+                `;
+                
+                // Find the asset
+                const asset = findAssetByTag(assetTag) || findAssetBySerial(assetTag);
+                
+                if (!asset) {
+                    document.getElementById('assetDetailsCard').style.display = 'none';
+                    document.getElementById('scannedData').innerHTML = `
+                        <div style="color: var(--danger-red); margin-bottom: 1rem;">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            <strong>Asset Not Found:</strong> ${assetTag}
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn btn-primary" onclick="window.location.href='addasset.html?assetTag=${assetTag}'" style="margin-right: 10px;">
+                                <i class="fas fa-plus"></i> Add as New Asset
+                            </button>
+                            <button class="btn btn-secondary" onclick="startScanner()">
+                                <i class="fas fa-redo"></i> Scan Again
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Speak error message
+                    setTimeout(() => {
+                        if (voiceAvailable) {
+                            speakText(`Asset ${assetTag} not found in database.`, 0.9, 1.0);
+                        }
+                    }, 500);
+                    
+                    showToast(`Asset "${assetTag}" not found in database`, 'error');
+                    hideLoading();
+                    return;
+                }
+                
+                // Log the audit scan
+                await logAuditScan(asset, 'SCANNED');
+                
+                // Update asset with last scan date
+                await updateAssetLastScan(asset);
+                
+                // Display asset details
+                displayAssetDetails(asset);
+                
+                // Update stats
+                updateStats();
+                
+                hideLoading();
+                
+                // Show success animation
+                showScanSuccessAnimation();
+                
+                // Speak asset details after a delay
+                setTimeout(() => {
+                    speakAssetDetails();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error processing scanned asset:', error);
+                showToast('Error processing asset', 'error');
+                hideLoading();
+            }
+        }
+
+        async function logAuditScan(asset, status) {
+            const auditEntry = {
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                date: new Date().toISOString(),
+                userName: currentUser,
+                assetTag: asset.assetTag,
+                assetType: asset.assetType,
+                brandModel: asset.brandModel,
+                serialNumber: asset.serialNumber,
+                department: asset.department || 'Not Assigned',
+                purchaseDate: asset.purchaseDate,
+                lastScanDate: new Date().toISOString(),
+                status: status,
+                location: asset.location,
+                assignedTo: asset.assignedTo
+            };
+            
+            try {
+                if (firebaseConnected) {
+                    await auditLogsRef.push(auditEntry);
+                } else {
+                    // Save offline
+                    const offlineLogs = JSON.parse(localStorage.getItem('ctmOfflineAuditLogs') || '[]');
+                    offlineLogs.push({ ...auditEntry, offline: true });
+                    localStorage.setItem('ctmOfflineAuditLogs', JSON.stringify(offlineLogs));
+                }
+                
+                // Add to local history
+                auditHistory.unshift(auditEntry);
+                if (auditHistory.length > 100) {
+                    auditHistory = auditHistory.slice(0, 100);
+                }
+                
+                // Save to localStorage
+                localStorage.setItem('ctmAuditHistory', JSON.stringify(auditHistory));
+                
+            } catch (error) {
+                console.error('Error logging audit:', error);
+            }
+        }
+
+        async function updateAssetLastScan(asset) {
+            try {
+                const updateData = {
+                    lastScanDate: new Date().toISOString(),
+                    lastScannedBy: currentUser,
+                    scanStatus: 'FOUND',
+                    updatedAt: new Date().toISOString()
+                };
+                
+                if (firebaseConnected && asset.firebaseId) {
+                    await assetsRef.child(asset.firebaseId).update(updateData);
+                }
+                
+                // Update local asset
+                const assetIndex = allAssets.findIndex(a => a.assetTag === asset.assetTag);
+                if (assetIndex !== -1) {
+                    allAssets[assetIndex] = { ...allAssets[assetIndex], ...updateData };
+                    localStorage.setItem('ctmAllAssets', JSON.stringify(allAssets));
+                }
+                
+            } catch (error) {
+                console.error('Error updating asset:', error);
+            }
+        }
+
+        // ==============================================
+        // ASSET DISPLAY FUNCTIONS
+        // ==============================================
+        function displayAssetDetails(asset) {
+            const detailsGrid = document.getElementById('assetDetailsGrid');
+            const card = document.getElementById('assetDetailsCard');
+            
+            // Format date
+            const formatDate = (dateString) => {
+                if (!dateString) return 'Not Available';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            };
+            
+            // Create asset details HTML
+            detailsGrid.innerHTML = `
+                <div class="asset-info-group">
+                    <div class="info-label">Asset Tag</div>
+                    <div class="info-value" style="color: var(--primary-blue); font-weight: 800;">${asset.assetTag}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Asset Type</div>
+                    <div class="info-value">${asset.assetType || 'Not Specified'}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Brand/Model</div>
+                    <div class="info-value">${asset.brandModel || 'Not Specified'}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Serial Number</div>
+                    <div class="info-value">${asset.serialNumber || 'Not Available'}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Department</div>
+                    <div class="info-value" style="font-weight: 800; color: var(--primary-blue);">${asset.department || 'Not Assigned'}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Purchase Date</div>
+                    <div class="info-value">${formatDate(asset.purchaseDate)}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Location</div>
+                    <div class="info-value">${asset.location || 'Not Specified'}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Assigned To</div>
+                    <div class="info-value">${asset.assignedTo || 'Not Assigned'}</div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Last Scan Date</div>
+                    <div class="info-value" style="color: var(--success-green); font-weight: 700;">
+                        ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+                
+                <div class="asset-info-group">
+                    <div class="info-label">Status</div>
+                    <div class="info-value" style="color: var(--success-green); font-weight: 700;">
+                        <i class="fas fa-check-circle"></i> ACTIVE
+                    </div>
+                </div>
+                
+                ${asset.desktopLicenses && asset.desktopLicenses.length > 0 ? `
+                <div class="asset-info-group" style="grid-column: span 2;">
+                    <div class="info-label">Licensed Software</div>
+                    <div>
+                        ${asset.desktopLicenses.map(license => 
+                            `<span class="license-badge">${license.softwareName}</span>`
+                        ).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            `;
+            
+            // Show the card with animation
+            card.classList.add('visible');
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Update status
+            const statusElement = document.getElementById('assetStatus');
+            statusElement.className = 'asset-status status-scanned';
+            statusElement.innerHTML = '<i class="fas fa-check-circle"></i> SCANNED SUCCESSFULLY';
+            
+            // Hide scan result
+            document.getElementById('scanResult').style.display = 'none';
+        }
+
+        function closeAssetDetails() {
+            const card = document.getElementById('assetDetailsCard');
+            card.classList.remove('visible');
+        }
+
+        async function markAsFound() {
+            const assetTag = document.querySelector('.asset-info-group .info-value')?.textContent;
+            const asset = findAssetByTag(assetTag);
+            
+            if (asset) {
+                await logAuditScan(asset, 'FOUND');
+                showToast(`Asset ${assetTag} marked as found`, 'success');
+                updateStats();
+            }
+        }
+
+        async function markAsMissing() {
+            const assetTag = document.querySelector('.asset-info-group .info-value')?.textContent;
+            const asset = findAssetByTag(assetTag);
+            
+            if (asset) {
+                await logAuditScan(asset, 'MISSING');
+                showToast(`Asset ${assetTag} marked as missing`, 'warning');
+                updateStats();
+            }
+        }
+
+        // ==============================================
+        // STATISTICS FUNCTIONS
+        // ==============================================
+        function updateStats() {
+            const totalAssets = allAssets.length;
+            const today = new Date().toISOString().split('T')[0];
+            
+            const scannedToday = auditHistory.filter(log => {
+                const logDate = new Date(log.timestamp || log.date).toISOString().split('T')[0];
+                return logDate === today && (log.status === 'SCANNED' || log.status === 'FOUND');
+            }).length;
+            
+            // Assets not scanned in the last 30 days
+            const pendingAudit = allAssets.filter(asset => {
+                if (!asset.lastScanDate) return true;
+                const daysSinceScan = (new Date() - new Date(asset.lastScanDate)) / (1000 * 60 * 60 * 24);
+                return daysSinceScan > 30;
+            }).length;
+            
+            // Assets marked as missing
+            const missingAssets = auditHistory.filter(log => 
+                log.status === 'MISSING' && 
+                (new Date() - new Date(log.timestamp || log.date)) < 7 * 24 * 60 * 60 * 1000
+            ).length;
+            
+            document.getElementById('totalAssets').textContent = totalAssets;
+            document.getElementById('scannedToday').textContent = scannedToday;
+            document.getElementById('pendingAudit').textContent = pendingAudit;
+            document.getElementById('missingAssets').textContent = missingAssets;
+        }
+
+        // ==============================================
+        // UI/UX ENHANCEMENTS
+        // ==============================================
+        function showScanSuccessAnimation() {
+            // Create success animation element
+            const animation = document.createElement('div');
+            animation.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    z-index: 9999;
+                    background: linear-gradient(135deg, var(--success-green), #0ca678);
+                    color: white;
+                    padding: 30px 50px;
+                    border-radius: 20px;
+                    font-size: 2rem;
+                    font-weight: bold;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 15px;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                    animation: scaleIn 0.5s ease;
+                ">
+                    <i class="fas fa-check-circle" style="font-size: 4rem;"></i>
+                    <div>SCAN SUCCESSFUL!</div>
+                </div>
+            `;
+            
+            document.body.appendChild(animation);
+            
+            // Remove after animation
+            setTimeout(() => {
+                animation.style.animation = 'scaleOut 0.5s ease';
+                setTimeout(() => {
+                    document.body.removeChild(animation);
+                }, 500);
+            }, 1500);
+            
+            // Add CSS for animations
+            if (!document.getElementById('scan-animations')) {
+                const style = document.createElement('style');
+                style.id = 'scan-animations';
+                style.textContent = `
+                    @keyframes scaleIn {
+                        0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+                        70% { transform: translate(-50%, -50%) scale(1.1); }
+                        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                    }
+                    @keyframes scaleOut {
+                        0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                        100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        // ==============================================
+        // UTILITY FUNCTIONS
+        // ==============================================
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+                </div>
+                <div style="flex: 1;">
+                    <strong>${message}</strong>
+                </div>
+                <button onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--medium-gray); cursor: pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentNode === toastContainer) {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        if (toast.parentNode === toastContainer) {
+                            toastContainer.removeChild(toast);
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+
+        function generateAssetReport() {
+            showToast('Asset report generation feature coming soon', 'info');
+        }
+
+        // Make functions globally available
+        window.showToast = showToast;
+        window.startScanner = startScanner;
+        window.stopScanner = stopScanner;
+        window.switchCamera = switchCamera;
+        window.manualScan = manualScan;
+        window.scanFromFile = scanFromFile;
+        window.testVoice = testVoice;
+        window.markAsFound = markAsFound;
+        window.markAsMissing = markAsMissing;
+        window.generateAssetReport = generateAssetReport;
+        window.closeAssetDetails = closeAssetDetails;
+        window.speakAssetDetails = speakAssetDetails;
+        window.requestCameraPermission = requestCameraPermission;
+        window.hidePermissionModal = hidePermissionModal;
+        window.showAuditHistory = showAuditHistory;
+        window.hideAuditHistory = hideAuditHistory;
+        window.showReportGenerator = showReportGenerator;
+        window.hideReportGenerator = hideReportGenerator;
+        window.loadAuditHistory = loadAuditHistory;
+        window.clearAuditHistory = clearAuditHistory;
+        window.exportAuditToCSV = exportAuditToCSV;
+        window.exportReportToCSV = exportReportToCSV;
+        window.generateReport = generateReport;
+        window.printReport = printReport;
+        
+    </script>
+</body>
+</html>

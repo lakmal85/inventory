@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CTM IT - QR Scanner</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --success-green: #10b981;
+            --warning-yellow: #fbbf24;
+            --danger-red: #ef4444;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--dark-gray);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Firebase Status Indicator */
+        .firebase-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .firebase-connected {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border: 2px solid #10b981;
+        }
+
+        .firebase-disconnected {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: 2px solid #ef4444;
+        }
+
+        .firebase-syncing {
+            background: rgba(59, 130, 246, 0.95);
+            color: white;
+            border: 2px solid #3b82f6;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            box-shadow: var(--shadow);
+            padding: 0.8rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--primary-blue);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        .department-name {
+            font-size: 0.7rem;
+            color: var(--success-green);
+            font-weight: 600;
+        }
+
+        /* Navigation */
+        .mobile-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+            gap: 0.5rem;
+            scrollbar-width: none;
+        }
+
+        .mobile-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 0 0 auto;
+            padding: 0.6rem 1rem;
+            background: var(--light-gray);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--medium-gray);
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .nav-tab:hover {
+            background: #e5e7eb;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1rem;
+            max-width: 100%;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Page Content */
+        .page {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Page Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem 1rem;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--dark-gray);
+        }
+
+        .page-subtitle {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--success-green);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        /* Real-time Badge */
+        .realtime-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: var(--success-green);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 44px;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-blue);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning-yellow);
+            color: var(--dark-gray);
+        }
+
+        .btn-danger {
+            background: var(--danger-red);
+            color: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        /* QR Scanner */
+        .qr-scanner-container {
+            position: relative;
+            width: 100%;
+            margin: 0 auto;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            min-height: 300px;
+        }
+
+        #qr-reader {
+            width: 100% !important;
+            min-height: 300px;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .scanner-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 220px;
+            height: 220px;
+            border: 3px solid var(--success-green);
+            border-radius: 12px;
+        }
+
+        .scanner-line {
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--success-green), transparent);
+            animation: scanLine 2s infinite linear;
+        }
+
+        @keyframes scanLine {
+            0% { top: 10%; }
+            100% { top: 90%; }
+        }
+
+        /* Camera Permission Modal */
+        .permission-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .permission-content {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .permission-icon {
+            font-size: 3rem;
+            color: var(--primary-blue);
+            margin-bottom: 1rem;
+        }
+
+        .camera-list {
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .camera-option {
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            background: var(--light-gray);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .camera-option:hover {
+            border-color: var(--primary-blue);
+        }
+
+        .camera-option.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        /* Scanner Instructions */
+        .scanner-instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            z-index: 3;
+            padding: 0 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .toast {
+            background: var(--white);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            animation: slideInUp 0.3s ease;
+            border-left: 4px solid var(--success-green);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+        }
+
+        .toast-success { border-left-color: var(--success-green); }
+        .toast-error { border-left-color: var(--danger-red); }
+        .toast-warning { border-left-color: var(--warning-yellow); }
+        .toast-info { border-left-color: var(--secondary-blue); }
+
+        .toast-success .toast-icon { color: var(--success-green); }
+        .toast-error .toast-icon { color: var(--danger-red); }
+        .toast-warning .toast-icon { color: var(--warning-yellow); }
+        .toast-info .toast-icon { color: var(--secondary-blue); }
+
+        /* Device Details Card */
+        .device-details-card {
+            display: none;
+        }
+
+        /* Status Colors */
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-inactive { background: #fee2e2; color: #991b1b; }
+        .status-maintenance { background: #fef3c7; color: #92400e; }
+        .status-storage { background: #e0e7ff; color: #3730a3; }
+        .status-retired { background: #f3f4f6; color: #6b7280; }
+
+        /* Offline Badge */
+        .offline-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 0.2rem 0.4rem;
+            background: var(--warning-yellow);
+            color: var(--dark-gray);
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-left: 0.25rem;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--white);
+            padding: 1.5rem 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .copyright {
+            color: var(--medium-gray);
+            font-size: 0.8rem;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: var(--white);
+            border-radius: 12px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .header {
+                padding: 1rem 2rem;
+            }
+
+            .logo {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+
+            .company-name {
+                font-size: 1.4rem;
+            }
+
+            .department-name {
+                font-size: 0.8rem;
+            }
+
+            .mobile-nav {
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .nav-tab {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .main-container {
+                padding: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: row;
+            }
+
+            .btn {
+                min-width: 120px;
+            }
+
+            .toast-container {
+                right: 20px;
+                left: auto;
+                max-width: 350px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-nav {
+                gap: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase Status Indicator -->
+    <div class="firebase-status firebase-disconnected" id="firebaseStatus">
+        <i class="fas fa-plug"></i>
+        <span>Connecting to Firebase...</span>
+    </div>
+
+    <!-- Camera Permission Modal -->
+    <div class="permission-modal" id="cameraPermissionModal" style="display: none;">
+        <div class="permission-content">
+            <div class="permission-icon">
+                <i class="fas fa-camera"></i>
+            </div>
+            <h3 style="margin-bottom: 1rem; color: var(--primary-blue);">Camera Access Required</h3>
+            <p style="margin-bottom: 1.5rem; color: var(--medium-gray);">
+                To scan QR codes, please allow camera access in your browser settings.
+            </p>
+            <div class="camera-list" id="cameraList">
+                <p>Detecting cameras...</p>
+            </div>
+            <div class="button-group" style="margin-top: 1.5rem;">
+                <button class="btn btn-primary" onclick="requestCameraPermission()">
+                    <i class="fas fa-camera"></i> Allow Camera Access
+                </button>
+                <button class="btn btn-warning" onclick="hidePermissionModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="logo-text">
+                <div class="company-name">CTM IT Department</div>
+                <div class="department-name">Firebase Real-time Asset Management</div>
+            </div>
+        </div>
+
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <button class="nav-tab" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='scanqr.html'">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='addasset.html'">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Asset</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventory.html'">
+                <i class="fas fa-boxes-stacked"></i>
+                <span>Inventory</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='firebase.html'">
+                <i class="fas fa-database"></i>
+                <span>Firebase</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='fullreport.html'">
+                <i class="fas fa-file-alt"></i>
+                <span>Full Report</span>
+            </button>
+            <button class="nav-tab active" onclick="window.location.href='inventorymap.html'">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Inventory Map</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Scan QR Page -->
+        <div id="scan-page" class="page">
+            <div class="page-header">
+                <h1 class="page-title">Scan Asset QR Code</h1>
+                <p class="page-subtitle">Real-time data retrieval from Firebase Database</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-camera"></i>
+                        </div>
+                        <h2 class="card-title">Mobile QR Scanner</h2>
+                        <div class="realtime-badge">
+                            <i class="fas fa-bolt"></i>
+                            <span>LIVE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qr-scanner-container" id="scannerContainer">
+                    <div id="qr-reader"></div>
+                    <div class="scanner-overlay">
+                        <div class="scanner-frame"></div>
+                        <div class="scanner-line"></div>
+                    </div>
+                    <div class="scanner-instructions">
+                        Point camera at QR code. Make sure it's well lit.
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="startScan">
+                        <i class="fas fa-play"></i> Start Scanner
+                    </button>
+                    <button class="btn btn-secondary" id="stopScan" disabled>
+                        <i class="fas fa-stop"></i> Stop Scanner
+                    </button>
+                    <button class="btn btn-warning" onclick="selectCamera()">
+                        <i class="fas fa-camera"></i> Select Camera
+                </button>
+                <button class="btn btn-primary" onclick="window.location.href='auditqr.html'">
+                <i class="fas fa-qrcode"></i> Audit QR Scanner
+                </button>
+                </div>
+
+                <div id="scanResult" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--light-gray); border-radius: 8px;">
+                    <div style="color: var(--success-green); font-weight: 600; margin-bottom: 0.5rem;">
+                        <i class="fas fa-database"></i> Fetching from Firebase...
+                    </div>
+                    <div id="scannedData" style="font-family: monospace; word-break: break-all;"></div>
+                </div>
+            </div>
+
+            <div class="card device-details-card" id="deviceDetailsCard">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <h2 class="card-title">Asset Details from Firebase</h2>
+                        <div class="realtime-badge">
+                            <i class="fas fa-cloud"></i>
+                            <span>CLOUD</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="deviceDetails">
+                    <!-- Device details will be loaded from Firebase -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">CTM IT Department - Realtime Asset Management System</div>
+            <div class="copyright">
+                &copy; 2026 Real-time Asset Management powered by Lakmal Sanjeewa Jayawickrama
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==============================================
+        // FIREBASE CONFIGURATION (SAME AS INVENTORY.HTML)
+        // ==============================================
+        
+        // Your Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyABuZWbNXGJ359mbctDsX-SSxwkUd3v1KY",
+            authDomain: "student-management-syste-d39a3.firebaseapp.com",
+            databaseURL: "https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "student-management-syste-d39a3",
+            storageBucket: "student-management-syste-d39a3.firebasestorage.app",
+            messagingSenderId: "36925529487",
+            appId: "1:36925529487:web:385e1af7ba174f8440fffa"
+        };
+
+        // Initialize Firebase
+        let firebaseApp;
+        let database;
+        let isFirebaseInitialized = false;
+        let assetsRef;
+        let logsRef;
+        let connectionRef;
+
+        // ==============================================
+        // GLOBAL VARIABLES
+        // ==============================================
+        let html5QrCode = null;
+        let isScanning = false;
+        let assetsDB = {};
+        let firebaseConnected = false;
+        let selectedCameraId = null;
+        let availableCameras = [];
+        let voiceAvailable = false;
+        let femaleVoice = null;
+
+        // ==============================================
+        // TEXT-TO-SPEECH FUNCTIONS
+        // ==============================================
+        function initializeVoice() {
+            if ('speechSynthesis' in window) {
+                voiceAvailable = true;
+                
+                // Wait for voices to be loaded
+                speechSynthesis.onvoiceschanged = function() {
+                    const voices = speechSynthesis.getVoices();
+                    
+                    // Try to find a female voice (prefer English female voices)
+                    femaleVoice = voices.find(voice => 
+                        voice.lang.includes('en') && 
+                        (voice.name.toLowerCase().includes('female') || 
+                         voice.name.toLowerCase().includes('zira') || 
+                         voice.name.toLowerCase().includes('samantha') ||
+                         voice.name.toLowerCase().includes('google uk female'))
+                    );
+                    
+                    // If no female voice found, use first available English voice
+                    if (!femaleVoice) {
+                        femaleVoice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+                    }
+                    
+                    if (femaleVoice) {
+                        console.log('Using voice:', femaleVoice.name);
+                    }
+                };
+                
+                // Force voices to load
+                speechSynthesis.getVoices();
+                
+                showToast('Voice synthesis is ready', 'info');
+            } else {
+                console.warn('Text-to-speech not supported in this browser');
+                showToast('Voice synthesis not available', 'warning');
+            }
+        }
+
+        function speakText(text, rate = 1.0, pitch = 1.0) {
+            if (!voiceAvailable) {
+                console.warn('Text-to-speech not available');
+                return;
+            }
+            
+            try {
+                // Cancel any ongoing speech
+                speechSynthesis.cancel();
+                
+                // Create speech utterance
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                // Configure voice settings
+                utterance.rate = rate; // Speed (0.1 to 10)
+                utterance.pitch = pitch; // Pitch (0 to 2)
+                utterance.volume = 1.0; // Volume (0 to 1)
+                
+                // Use female voice if available
+                if (femaleVoice) {
+                    utterance.voice = femaleVoice;
+                }
+                
+                // Event listeners for speech
+                utterance.onstart = function() {
+                    console.log('Speech started');
+                };
+                
+                utterance.onend = function() {
+                    console.log('Speech ended');
+                };
+                
+                utterance.onerror = function(event) {
+                    console.error('Speech error:', event);
+                };
+                
+                // Speak the text
+                speechSynthesis.speak(utterance);
+                
+            } catch (error) {
+                console.error('Text-to-speech error:', error);
+            }
+        }
+
+        function speakAssetDetails(asset) {
+            if (!voiceAvailable) {
+                return;
+            }
+            
+            // Construct a clear, concise description of the asset
+            let speechText = `Asset ${asset.assetTag} found. `;
+            speechText += `Asset type: ${asset.assetType || 'not specified'}. `;
+            speechText += `Status: ${asset.status || 'unknown'}. `;
+            
+            if (asset.assignedTo) {
+                speechText += `Assigned to: ${asset.assignedTo}. `;
+            }
+            
+            if (asset.location) {
+                speechText += `Location: ${asset.location}. `;
+            }
+            
+            if (asset.department) {
+                speechText += `Department: ${asset.department}. `;
+            }
+            
+            // Add specifications based on asset type
+            if (asset.assetType === 'Desktop PC') {
+                if (asset.desktopProcessor) speechText += `Processor: ${asset.desktopProcessor}. `;
+                if (asset.desktopRAM) speechText += `RAM: ${asset.desktopRAM}. `;
+                if (asset.desktopStorageCapacity) speechText += `Storage: ${asset.desktopStorageCapacity}. `;
+            } else if (asset.assetType === 'Laptop PC') {
+                if (asset.laptopProcessor) speechText += `Processor: ${asset.laptopProcessor}. `;
+                if (asset.laptopRAM) speechText += `RAM: ${asset.laptopRAM}. `;
+                if (asset.laptopStorage) speechText += `Storage: ${asset.laptopStorage}. `;
+            } else if (asset.assetType === 'Server') {
+                if (asset.serverProcessor) speechText += `Processor: ${asset.serverProcessor}. `;
+                if (asset.serverRAM) speechText += `RAM: ${asset.serverRAM}. `;
+            } else if (asset.assetType === 'Mobile Phone') {
+                if (asset.mobileOS) speechText += `Operating system: ${asset.mobileOS}. `;
+                if (asset.mobileStorage) speechText += `Storage: ${asset.mobileStorage}. `;
+            }
+            
+            // Speak the details
+            speakText(speechText, 1.0, 1.1); // Slightly higher pitch for female voice
+        }
+
+        // ==============================================
+        // AUDIO FUNCTIONS (BEEP SOUND)
+        // ==============================================
+        function playBeepSound() {
+            try {
+                // Create audio context
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Configure beep sound
+                oscillator.frequency.value = 800; // Frequency in Hz
+                oscillator.type = 'sine'; // Type of wave
+                
+                // Configure volume envelope
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                // Play the beep
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+                
+                // Speak success message after beep
+                setTimeout(() => {
+                    if (voiceAvailable) {
+                        speakText("QR code scanning was successful", 1.0, 1.1);
+                    }
+                }, 150);
+                
+            } catch (error) {
+                console.error('Beep sound error:', error);
+                // Fallback to simple beep using HTML audio if Web Audio API fails
+                try {
+                    const beepAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
+                    beepAudio.play();
+                    
+                    setTimeout(() => {
+                        if (voiceAvailable) {
+                            speakText("QR code scanning was successful", 1.0, 1.1);
+                        }
+                    }, 300);
+                } catch (e) {
+                    console.error('Fallback beep also failed:', e);
+                }
+            }
+        }
+
+        // ==============================================
+        // FIXED: Firebase ID generation and lookup functions
+        // ==============================================
+        function generateFirebaseId(assetTag) {
+            return assetTag.replace(/[^a-zA-Z0-9]/g, '_');
+        }
+
+        function findAssetByTag(assetTag) {
+            // First check in assetsDB by direct key (Firebase ID)
+            const firebaseId = generateFirebaseId(assetTag);
+            if (assetsDB[firebaseId]) {
+                return assetsDB[firebaseId];
+            }
+            
+            // If not found by Firebase ID, search through all assets
+            for (const key in assetsDB) {
+                const asset = assetsDB[key];
+                if (asset && asset.assetTag === assetTag) {
+                    return asset;
+                }
+            }
+            
+            return null;
+        }
+
+        // ==============================================
+        // FIXED FIREBASE INITIALIZATION
+        // ==============================================
+        function initializeFirebase() {
+            try {
+                // Check if Firebase app is already initialized
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                } else {
+                    firebaseApp = firebase.app();
+                }
+                
+                database = firebase.database();
+                isFirebaseInitialized = true;
+                
+                // Set database references
+                assetsRef = database.ref('assets');
+                logsRef = database.ref('scanLogs');
+                connectionRef = database.ref('.info/connected');
+                
+                // Set up connection status listener
+                connectionRef.on('value', (snapshot) => {
+                    firebaseConnected = snapshot.val();
+                    updateConnectionStatus(firebaseConnected);
+                    
+                    if (firebaseConnected) {
+                        showToast('Connected to Firebase Database', 'success');
+                        setupRealtimeListeners();
+                    } else {
+                        showToast('Disconnected from Firebase. Working offline.', 'warning');
+                        loadFromLocalBackup();
+                    }
+                });
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showToast(`Firebase connection error: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+                
+                // Load from local backup if available
+                loadFromLocalBackup();
+                
+                return false;
+            }
+        }
+
+        // ==============================================
+        // CONNECTION STATUS UPDATES
+        // ==============================================
+        function updateConnectionStatus(connected) {
+            const firebaseStatus = document.getElementById('firebaseStatus');
+            
+            if (connected) {
+                firebaseStatus.className = 'firebase-status firebase-connected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Connected to Firebase</span>';
+            } else {
+                firebaseStatus.className = 'firebase-status firebase-disconnected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Disconnected from Firebase</span>';
+            }
+        }
+
+        // ==============================================
+        // FIXED: REAL-TIME DATABASE LISTENERS
+        // ==============================================
+        function setupRealtimeListeners() {
+            if (!isFirebaseInitialized) return;
+            
+            assetsRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                
+                // Clear existing assets
+                assetsDB = {};
+                
+                if (data) {
+                    // Process each asset from Firebase
+                    Object.keys(data).forEach(firebaseId => {
+                        const asset = data[firebaseId];
+                        if (asset && asset.assetTag) {
+                            // Store with Firebase ID as key
+                            assetsDB[firebaseId] = asset;
+                            // Also store with assetTag as key for easy lookup
+                            assetsDB[asset.assetTag] = asset;
+                        }
+                    });
+                }
+                
+                localStorage.setItem('ctmAssetsBackup', JSON.stringify(assetsDB));
+                
+            }, (error) => {
+                console.error('Firebase read error:', error);
+                showToast('Error loading assets from Firebase', 'error');
+            });
+        }
+
+        function loadFromLocalBackup() {
+            const backup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+            assetsDB = backup;
+            showToast('Loaded from local backup', 'info');
+        }
+
+        // ==============================================
+        // FIXED: SCAN LOGGING FUNCTIONS
+        // ==============================================
+        async function logScanActivity(assetTag, action, details = {}) {
+            const logEntry = {
+                assetTag: assetTag,
+                action: action,
+                details: details,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                scannedBy: 'System User',
+                deviceInfo: navigator.userAgent.substring(0, 100) // Limit length
+            };
+
+            try {
+                if (isFirebaseInitialized && firebaseConnected) {
+                    // Save to Firebase
+                    await logsRef.push(logEntry);
+                } else {
+                    // Save to local storage
+                    const localLogs = JSON.parse(localStorage.getItem(`ctmScanLogs_${assetTag}`)) || [];
+                    localLogs.push({
+                        ...logEntry,
+                        timestamp: Date.now()
+                    });
+                    
+                    // Keep only last 100 logs per asset
+                    if (localLogs.length > 100) {
+                        localLogs.splice(0, localLogs.length - 100);
+                    }
+                    
+                    localStorage.setItem(`ctmScanLogs_${assetTag}`, JSON.stringify(localLogs));
+                }
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Failed to log scan activity:', error);
+                return false;
+            }
+        }
+
+        // ==============================================
+        // CAMERA & QR SCANNER FUNCTIONS
+        // ==============================================
+        async function detectCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                availableCameras = devices.filter(device => device.kind === 'videoinput');
+                
+                const cameraList = document.getElementById('cameraList');
+                cameraList.innerHTML = '';
+                
+                if (availableCameras.length === 0) {
+                    cameraList.innerHTML = '<p style="color: var(--danger-red);">No cameras detected on this device.</p>';
+                    return false;
+                }
+                
+                availableCameras.forEach((camera, index) => {
+                    const cameraOption = document.createElement('div');
+                    cameraOption.className = 'camera-option';
+                    cameraOption.textContent = camera.label || `Camera ${index + 1}`;
+                    cameraOption.onclick = () => selectSpecificCamera(camera.deviceId);
+                    
+                    if (index === 0 && !selectedCameraId) {
+                        selectedCameraId = camera.deviceId;
+                        cameraOption.classList.add('active');
+                    } else if (camera.deviceId === selectedCameraId) {
+                        cameraOption.classList.add('active');
+                    }
+                    
+                    cameraList.appendChild(cameraOption);
+                });
+                
+                return true;
+            } catch (error) {
+                console.error('Camera detection error:', error);
+                showToast('Failed to detect cameras', 'error');
+                return false;
+            }
+        }
+
+        async function requestCameraPermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop());
+                await detectCameras();
+                hidePermissionModal();
+                showToast('Camera permission granted!', 'success');
+                return true;
+            } catch (error) {
+                let errorMessage = '';
+                if (error.name === 'NotAllowedError') {
+                    errorMessage = 'Camera access was denied. Please allow camera access in your browser settings.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = 'No camera found on this device.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage = 'Camera is already in use by another application.';
+                } else {
+                    errorMessage = `Camera error: ${error.message}`;
+                }
+                
+                showToast(errorMessage, 'error');
+                return false;
+            }
+        }
+
+        function selectCamera() {
+            if (isScanning) {
+                stopScanner();
+            }
+            showPermissionModal();
+        }
+
+        function selectSpecificCamera(cameraId) {
+            selectedCameraId = cameraId;
+            document.querySelectorAll('.camera-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            showToast('Camera selected. Restart scanner to apply.', 'info');
+        }
+
+        function showPermissionModal() {
+            detectCameras().then(hasCameras => {
+                if (!hasCameras) {
+                    showToast('No cameras found. Using default camera.', 'warning');
+                }
+                document.getElementById('cameraPermissionModal').style.display = 'flex';
+            });
+        }
+
+        function hidePermissionModal() {
+            document.getElementById('cameraPermissionModal').style.display = 'none';
+        }
+
+        async function initializeScanner() {
+            if (html5QrCode) {
+                try {
+                    await html5QrCode.stop();
+                    html5QrCode.clear();
+                } catch (e) {}
+            }
+            
+            try {
+                html5QrCode = new Html5Qrcode("qr-reader");
+                document.getElementById('startScan').onclick = startScanner;
+                document.getElementById('stopScan').onclick = stopScanner;
+                return true;
+            } catch (error) {
+                console.error('Scanner initialization error:', error);
+                showToast('Failed to initialize QR scanner', 'error');
+                return false;
+            }
+        }
+
+        async function startScanner() {
+            if (isScanning) return;
+            
+            try {
+                document.getElementById('scanResult').style.display = 'none';
+                document.getElementById('deviceDetailsCard').style.display = 'none';
+                document.getElementById('scannedData').textContent = '';
+                
+                const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
+                    await stopScanner();
+                    
+                    document.getElementById('scanResult').style.display = 'block';
+                    document.getElementById('scannedData').innerHTML = `
+                        <div style="color: var(--success-green);">
+                            <i class="fas fa-check-circle"></i> 
+                            QR Code Scanned: ${decodedText}
+                        </div>
+                        <div style="margin-top: 0.5rem; color: var(--medium-gray);">
+                            Fetching asset details...
+                        </div>
+                    `;
+                    
+                    // Play beep sound and speak success message
+                    playBeepSound();
+                    
+                    await logScanActivity(decodedText, 'QR_SCAN', {
+                        scannerType: 'HTML5 QR Scanner',
+                        success: true,
+                        decodedResult: decodedResult
+                    });
+                    
+                    // Use FIXED: findAssetByTag function
+                    const asset = findAssetByTag(decodedText);
+                    
+                    if (asset) {
+                        await logScanActivity(decodedText, 'ASSET_RETRIEVED', {
+                            assetFound: true,
+                            assetType: asset.assetType,
+                            status: asset.status
+                        });
+                        
+                        displayAssetDetails(asset);
+                        
+                        // Speak asset details
+                        setTimeout(() => {
+                            speakAssetDetails(asset);
+                        }, 1000);
+                        
+                        setTimeout(() => {
+                            showToast('Scanner will restart in 10 seconds to continue scanning', 'info');
+                        }, 60000);
+                        
+                        setTimeout(() => {
+                            if (!isScanning) {
+                                startScanner();
+                            }
+                        }, 10000);
+                    } else {
+                        await logScanActivity(decodedText, 'ASSET_NOT_FOUND', {
+                            assetFound: false,
+                            message: 'Asset not found in database'
+                        });
+                        
+                        document.getElementById('deviceDetailsCard').style.display = 'none';
+                        document.getElementById('scannedData').innerHTML = `
+                            <div style="color: var(--danger-red);">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Asset not found: ${decodedText}
+                            </div>
+                            <div style="margin-top: 0.5rem;">
+                                <button class="btn btn-primary" onclick="window.location.href='AddAsset.html?assetTag=${decodedText}'">
+                                    <i class="fas fa-plus"></i> Add as New Asset
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Speak error message
+                        setTimeout(() => {
+                            if (voiceAvailable) {
+                                speakText(`Asset ${decodedText} not found in database`, 1.0, 1.1);
+                            }
+                        }, 500);
+                        
+                        showToast(`Asset ${decodedText} not found in database`, 'error');
+                        
+                        setTimeout(() => {
+                            if (!isScanning) {
+                                startScanner();
+                            }
+                        }, 5000);
+                    }
+                };
+                
+                const qrCodeErrorCallback = (errorMessage) => {
+                    if (!errorMessage.includes('NotFoundException') && 
+                        !errorMessage.includes('No QR code') &&
+                        !errorMessage.includes('No multi format')) {
+                        console.log('QR Scanner Info:', errorMessage);
+                    }
+                };
+                
+                let cameraConfig = selectedCameraId || { facingMode: "environment" };
+                const config = getScannerConfig();
+                
+                await html5QrCode.start(
+                    cameraConfig,
+                    config,
+                    qrCodeSuccessCallback,
+                    qrCodeErrorCallback
+                );
+                
+                isScanning = true;
+                document.getElementById('startScan').disabled = true;
+                document.getElementById('stopScan').disabled = false;
+                showToast('QR scanner started successfully', 'success');
+                
+            } catch (error) {
+                console.error('Scanner start error:', error);
+                
+                if (error.message.includes('NotAllowedError') || 
+                    error.name === 'NotAllowedError' ||
+                    error.message.includes('Permission denied')) {
+                    
+                    showToast('Camera access denied. Please allow camera permissions.', 'error');
+                    showPermissionModal();
+                } else if (error.message.includes('NotFoundError') || 
+                          error.name === 'NotFoundError') {
+                    
+                    showToast('No camera found on this device.', 'error');
+                } else if (error.message.includes('NotReadableError') || 
+                          error.name === 'NotReadableError') {
+                    
+                    showToast('Camera is already in use by another application.', 'error');
+                } else {
+                    showToast(`Scanner error: ${error.message}`, 'error');
+                }
+                
+                isScanning = false;
+                document.getElementById('startScan').disabled = false;
+                document.getElementById('stopScan').disabled = true;
+            }
+        }
+
+        async function stopScanner() {
+            if (!isScanning || !html5QrCode) return;
+            
+            try {
+                await html5QrCode.stop();
+                isScanning = false;
+                document.getElementById('startScan').disabled = false;
+                document.getElementById('stopScan').disabled = true;
+                showToast('Scanner stopped', 'info');
+            } catch (error) {
+                console.error('Scanner stop error:', error);
+                isScanning = false;
+                document.getElementById('startScan').disabled = false;
+                document.getElementById('stopScan').disabled = true;
+            }
+        }
+
+        function getScannerConfig() {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                return {
+                    fps: 15,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0,
+                    disableFlip: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
+                };
+            }
+            
+            return {
+                fps: 10,
+                qrbox: { width: 300, height: 300 },
+                aspectRatio: 1.0,
+                disableFlip: false,
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
+            };
+        }
+
+        // ==============================================
+        // FIXED: ASSET DISPLAY FUNCTIONS (UPDATED)
+        // ==============================================
+        function displayAssetDetails(asset) {
+            const deviceDetailsCard = document.getElementById('deviceDetailsCard');
+            const deviceDetails = document.getElementById('deviceDetails');
+            
+            // Determine status class
+            const statusClass = asset.status === 'Active' ? 'status-active' :
+                              asset.status === 'In Use' ? 'status-active' :
+                              asset.status === 'In Storage' ? 'status-storage' :
+                              asset.status === 'Under Repair' ? 'status-maintenance' :
+                              asset.status === 'Retired' ? 'status-retired' : 'status-inactive';
+            
+            let html = `
+                <div style="margin-bottom: 1rem; padding: 1rem; background: var(--light-gray); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <div style="font-weight: 600; color: var(--primary-blue);">${asset.assetTag}</div>
+                        <div style="font-size: 0.9rem; color: var(--medium-gray);">
+                            ${asset.offline ? '<i class="fas fa-cloud"></i> Offline Storage' : '<i class="fas fa-fire"></i> Firebase Database'}
+                        </div>
+                    </div>
+                    <div>
+                        <span class="item-status ${statusClass}" style="padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                            ${asset.status || 'Unknown'}
+                        </span>
+                        ${asset.offline ? '<span class="offline-badge"><i class="fas fa-cloud"></i> Offline</span>' : ''}
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                    <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--primary-blue); margin-bottom: 0.5rem;">Basic Information</div>
+                        <div style="font-size: 0.9rem;">
+                            <div style="margin-bottom: 0.25rem;"><strong>Asset Type:</strong> ${asset.assetType || 'N/A'}</div>
+                            <div style="margin-bottom: 0.25rem;"><strong>Serial Number:</strong> ${asset.serialNumber || 'N/A'}</div>
+                            <div style="margin-bottom: 0.25rem;"><strong>Brand/Model:</strong> ${asset.brandModel || 'N/A'}</div>
+                            <div style="margin-bottom: 0.25rem;"><strong>Location:</strong> ${asset.location || 'N/A'}</div>
+                            ${asset.department ? `<div style="margin-bottom: 0.25rem;"><strong>Department:</strong> <span style="font-weight: 800;">${asset.department}</span></div>` : ''}
+                            ${asset.previouslyAssignedTo ? `<div style="margin-bottom: 0.25rem;"><strong>Previously Assigned To:</strong> ${asset.previouslyAssignedTo}</div>` : ''}
+                            <div><strong>Assigned To:</strong> ${asset.assignedTo || 'N/A'}</div>
+                        </div>
+                    </div>
+            `;
+            
+            // Display specific details based on asset type
+            if (asset.assetType === 'Desktop PC' && (asset.desktopProcessor || asset.desktopRAM || asset.desktopStorageCapacity)) {
+                html += `
+                    <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--primary-blue); margin-bottom: 0.5rem;">Desktop PC Specifications</div>
+                        <div style="font-size: 0.9rem;">
+                            ${asset.desktopProcessor ? `<div style="margin-bottom: 0.25rem;"><strong>Processor:</strong> ${asset.desktopProcessor} ${asset.desktopProcessorSpeed || ''}</div>` : ''}
+                            ${asset.desktopMotherboard ? `<div style="margin-bottom: 0.25rem;"><strong>Motherboard:</strong> ${asset.desktopMotherboard}</div>` : ''}
+                            ${asset.desktopRAM ? `<div style="margin-bottom: 0.25rem;"><strong>RAM:</strong> ${asset.desktopRAM}</div>` : ''}
+                            ${asset.desktopStorageCapacity ? `<div style="margin-bottom: 0.25rem;"><strong>Storage:</strong> ${asset.desktopStorageCapacity} ${asset.desktopStorageType || ''}</div>` : ''}
+                            ${asset.desktopOperatingSystem ? `<div><strong>Operating System:</strong> ${asset.desktopOperatingSystem}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (asset.assetType === 'Laptop PC' && (asset.laptopProcessor || asset.laptopRAM || asset.laptopStorage)) {
+                html += `
+                    <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--primary-blue); margin-bottom: 0.5rem;">Laptop PC Specifications</div>
+                        <div style="font-size: 0.9rem;">
+                            ${asset.laptopProcessor ? `<div style="margin-bottom: 0.25rem;"><strong>Processor:</strong> ${asset.laptopProcessor} ${asset.laptopProcessorSpeed || ''}</div>` : ''}
+                            ${asset.laptopRAM ? `<div style="margin-bottom: 0.25rem;"><strong>RAM:</strong> ${asset.laptopRAM}</div>` : ''}
+                            ${asset.laptopStorage ? `<div style="margin-bottom: 0.25rem;"><strong>Storage:</strong> ${asset.laptopStorage}</div>` : ''}
+                            ${asset.laptopScreenSize ? `<div style="margin-bottom: 0.25rem;"><strong>Screen Size:</strong> ${asset.laptopScreenSize}</div>` : ''}
+                            ${asset.laptopOperatingSystem ? `<div><strong>Operating System:</strong> ${asset.laptopOperatingSystem}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (asset.assetType === 'Server' && (asset.serverProcessor || asset.serverRAM || asset.serverStorageConfig)) {
+                html += `
+                    <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--primary-blue); margin-bottom: 0.5rem;">Server Specifications</div>
+                        <div style="font-size: 0.9rem;">
+                            ${asset.serverProcessor ? `<div style="margin-bottom: 0.25rem;"><strong>Processor:</strong> ${asset.serverProcessor}</div>` : ''}
+                            ${asset.serverRAM ? `<div style="margin-bottom: 0.25rem;"><strong>RAM:</strong> ${asset.serverRAM}</div>` : ''}
+                            ${asset.serverStorageConfig ? `<div style="margin-bottom: 0.25rem;"><strong>Storage:</strong> ${asset.serverStorageConfig}</div>` : ''}
+                            ${asset.serverOperatingSystem ? `<div><strong>Operating System:</strong> ${asset.serverOperatingSystem}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (asset.assetType === 'Mobile Phone' && (asset.mobileOS || asset.mobileStorage || asset.imeiNumber)) {
+                html += `
+                    <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--primary-blue); margin-bottom: 0.5rem;">Mobile Phone Specifications</div>
+                        <div style="font-size: 0.9rem;">
+                            ${asset.phoneType ? `<div style="margin-bottom: 0.25rem;"><strong>Phone Type:</strong> ${asset.phoneType}</div>` : ''}
+                            ${asset.mobileOS ? `<div style="margin-bottom: 0.25rem;"><strong>Operating System:</strong> ${asset.mobileOS}</div>` : ''}
+                            ${asset.mobileScreenSize ? `<div style="margin-bottom: 0.25rem;"><strong>Screen Size:</strong> ${asset.mobileScreenSize}</div>` : ''}
+                            ${asset.mobileStorage ? `<div style="margin-bottom: 0.25rem;"><strong>Storage:</strong> ${asset.mobileStorage}</div>` : ''}
+                            ${asset.imeiNumber ? `<div><strong>IMEI Number:</strong> ${asset.imeiNumber}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `
+                    <div style="background: var(--light-gray); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--primary-blue); margin-bottom: 0.5rem;">Additional Information</div>
+                        <div style="font-size: 0.9rem;">
+                            <div style="margin-bottom: 0.25rem;"><strong>Purchase Date:</strong> ${asset.purchaseDate || 'N/A'}</div>
+                            <div style="margin-bottom: 0.25rem;"><strong>Warranty:</strong> ${asset.warrantyPeriod || 'N/A'}</div>
+                            ${asset.purchasePrice ? `<div style="margin-bottom: 0.25rem;"><strong>Purchase Price:</strong> LKR ${asset.purchasePrice}</div>` : ''}
+                            ${asset.supplier ? `<div style="margin-bottom: 0.25rem;"><strong>Supplier:</strong> ${asset.supplier}</div>` : ''}
+                            ${asset.invoiceNumber ? `<div style="margin-bottom: 0.25rem;"><strong>Invoice Number:</strong> ${asset.invoiceNumber}</div>` : ''}
+                            ${asset.gpsLocation ? `<div><strong>GPS Location:</strong> ${asset.gpsLocation}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="button-group" style="margin-top: 1rem;">
+                    <button class="btn btn-primary" onclick="window.location.href='Inventory.html?view=${asset.assetTag}'">
+                        <i class="fas fa-eye"></i> View in Inventory
+                    </button>
+                    <button class="btn btn-warning" onclick="window.location.href='AddAsset.html?edit=${asset.assetTag}'">
+                        <i class="fas fa-edit"></i> Edit Asset
+                    </button>
+                    <button class="btn btn-success" onclick="window.location.href='AddAsset.html?generate=${asset.assetTag}'">
+                        <i class="fas fa-qrcode"></i> Generate QR
+                    </button>
+                    <button class="btn btn-secondary" onclick="showScanHistory('${asset.assetTag}')">
+                        <i class="fas fa-history"></i> Scan History
+                    </button>
+                    <button class="btn btn-info" onclick="speakAssetDetails(${JSON.stringify(asset).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-volume-up"></i> Speak Details
+                    </button>
+                </div>
+            `;
+            
+            deviceDetails.innerHTML = html;
+            deviceDetailsCard.style.display = 'block';
+            deviceDetailsCard.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showScanHistory(assetTag) {
+            showToast(`Opening scan history for ${assetTag}`, 'info');
+            window.location.href = `Inventory.html?viewLogs=${assetTag}`;
+        }
+
+        // ==============================================
+        // UTILITY FUNCTIONS
+        // ==============================================
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+                </div>
+                <div style="flex: 1;">
+                    <strong>${message}</strong>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode === toastContainer) {
+                        toastContainer.removeChild(toast);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // ==============================================
+        // INITIALIZATION
+        // ==============================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Initialize Firebase immediately
+            const firebaseInitialized = initializeFirebase();
+            
+            // Initialize voice synthesis
+            initializeVoice();
+            
+            // Setup scanner
+            document.getElementById('startScan').addEventListener('click', startScanner);
+            document.getElementById('stopScan').addEventListener('click', stopScanner);
+            
+            // Initialize scanner
+            setTimeout(() => {
+                initializeScanner();
+            }, 1000);
+            
+            // Detect cameras after a delay
+            setTimeout(() => {
+                detectCameras();
+            }, 2000);
+            
+            // Check URL parameters for edit or generate
+            const urlParams = new URLSearchParams(window.location.search);
+            const editAsset = urlParams.get('edit');
+            const generateAsset = urlParams.get('generate');
+            
+            if (editAsset) {
+                showToast(`Edit mode for asset: ${editAsset}`, 'info');
+            }
+            
+            if (generateAsset) {
+                showToast(`Generate QR for asset: ${generateAsset}`, 'info');
+            }
+        });
+
+        // Make functions globally available
+        window.selectCamera = selectCamera;
+        window.requestCameraPermission = requestCameraPermission;
+        window.hidePermissionModal = hidePermissionModal;
+        window.showScanHistory = showScanHistory;
+        window.speakAssetDetails = speakAssetDetails;
+        window.playBeepSound = playBeepSound;
+        window.speakText = speakText;
+        
+    </script>
+</body>
+</html>

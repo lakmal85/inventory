@@ -1,0 +1,2499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CTM IT - Asset Live Location Manager</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD73rkPwCGrZsrK2DdKM59A8yx8YkP8Doc&callback=initMap&libraries=places" async defer></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --success-green: #10b981;
+            --warning-yellow: #fbbf24;
+            --danger-red: #ef4444;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f3f4f6;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--dark-gray);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Firebase Status Indicator */
+        .firebase-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .firebase-connected {
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            border: 2px solid #10b981;
+        }
+
+        .firebase-disconnected {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            border: 2px solid #ef4444;
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            box-shadow: var(--shadow);
+            padding: 0.8rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 3px solid var(--primary-blue);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        .department-name {
+            font-size: 0.7rem;
+            color: var(--success-green);
+            font-weight: 600;
+        }
+
+        /* Navigation */
+        .mobile-nav {
+            display: flex;
+            overflow-x: auto;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+            gap: 0.5rem;
+            scrollbar-width: none;
+        }
+
+        .mobile-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 0 0 auto;
+            padding: 0.6rem 1rem;
+            background: var(--light-gray);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--medium-gray);
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .nav-tab:hover {
+            background: #e5e7eb;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1rem;
+            max-width: 100%;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Page Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem 1rem;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--primary-blue);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--dark-gray);
+        }
+
+        .page-subtitle {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Two Column Layout */
+        .two-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .two-column {
+                flex-direction: row;
+            }
+            
+            .column-left {
+                flex: 1;
+            }
+            
+            .column-right {
+                flex: 1;
+            }
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--success-green);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        /* Asset List */
+        .asset-list-container {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .asset-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .asset-list-container::-webkit-scrollbar-track {
+            background: var(--light-gray);
+            border-radius: 3px;
+        }
+
+        .asset-list-container::-webkit-scrollbar-thumb {
+            background: var(--medium-gray);
+            border-radius: 3px;
+        }
+
+        .asset-item {
+            background: var(--white);
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .asset-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+            border-color: var(--primary-blue);
+        }
+
+        .asset-item.selected {
+            border-color: var(--success-green);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(59, 130, 246, 0.05));
+        }
+
+        .asset-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .asset-tag {
+            font-weight: 700;
+            color: var(--primary-blue);
+            font-size: 1.1rem;
+        }
+
+        .asset-status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-inuse { background: #dbeafe; color: #1e40af; }
+        .status-storage { background: #fef3c7; color: #92400e; }
+        .status-repair { background: #fee2e2; color: #991b1b; }
+        .status-retired { background: #f3f4f6; color: #6b7280; }
+
+        .asset-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            margin-bottom: 0.5rem;
+        }
+
+        .asset-info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .asset-info-item i {
+            width: 16px;
+            color: var(--primary-blue);
+        }
+
+        .asset-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .asset-item:hover .asset-actions {
+            opacity: 1;
+        }
+
+        /* Map Container - UPDATED to 700x700 */
+        .map-container {
+            position: relative;
+            width: 100%;
+            height: 700px; /* Increased from 400px to 700px */
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 1.5rem;
+            border: 3px solid var(--white);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+/* Map Top Search Bar - ADDED */
+.map-search-container {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    left: auto;
+    z-index: 100;
+    max-width: 400px;
+    width: 300px;
+    margin: 0;
+}
+
+
+   .map-search-box {
+    position: relative;
+    width: 75%;
+}
+
+   .map-search-input {
+    width: 100%;
+    padding: 0.75rem 3rem 0.75rem 1rem;
+    border: 2px solid var(--primary-blue);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+}
+
+ .map-search-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2);
+}
+
+  .map-search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary-blue);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+ /* Map Controls */
+.map-controls {
+    position: absolute;
+    top: 70px;
+    left: 15px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    max-width: 250px;
+}
+
+/* Map Type Toggle Button - ADDED */
+.map-type-toggle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-blue);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+}
+
+.map-type-toggle:hover {
+    background: var(--white);
+    transform: translateY(-2px);
+}
+
+        /* Legend */
+        .legend {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        .legend-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-items {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--dark-gray);
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        /* Location Controls */
+        .location-controls {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-top: 1.5rem;
+        }
+
+        .location-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .location-card {
+            background: var(--light-gray);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .location-card i {
+            font-size: 2rem;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .location-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+            margin-bottom: 0.25rem;
+        }
+
+        .location-label {
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 44px;
+            font-family: inherit;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--success-green));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-blue);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning-yellow);
+            color: var(--dark-gray);
+        }
+
+        .btn-danger {
+            background: var(--danger-red);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            min-height: 36px;
+        }
+
+        /* Search Suggestions Dropdown - ADDED */
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .search-suggestion-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
+        }
+
+        .search-suggestion-item:hover {
+            background: var(--light-gray);
+        }
+
+        .search-suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-tag {
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        .suggestion-type {
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .toast {
+            background: var(--white);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            animation: slideInUp 0.3s ease;
+            border-left: 4px solid var(--success-green);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+        }
+
+        .toast-success { border-left-color: var(--success-green); }
+        .toast-error { border-left-color: var(--danger-red); }
+        .toast-warning { border-left-color: var(--warning-yellow); }
+        .toast-info { border-left-color: var(--secondary-blue); }
+
+        .toast-success .toast-icon { color: var(--success-green); }
+        .toast-error .toast-icon { color: var(--danger-red); }
+        .toast-warning .toast-icon { color: var(--warning-yellow); }
+        .toast-info .toast-icon { color: var(--secondary-blue); }
+
+        /* Loading Animation */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: var(--medium-gray);
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--light-gray);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--light-gray);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark-gray);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--medium-gray);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .modal-close:hover {
+            color: var(--danger-red);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            background: var(--white);
+            font-family: inherit;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        /* Search Bar */
+        .search-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-box {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 3rem 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: var(--white);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-blue);
+            font-size: 1.1rem;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--white);
+            padding: 1.5rem 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .copyright {
+            color: var(--medium-gray);
+            font-size: 0.8rem;
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .header {
+                padding: 1rem 2rem;
+            }
+
+            .logo {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+
+            .company-name {
+                font-size: 1.4rem;
+            }
+
+            .department-name {
+                font-size: 0.8rem;
+            }
+
+            .mobile-nav {
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .nav-tab {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .main-container {
+                padding: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .map-container {
+                height: 700px; /* Fixed height for desktop */
+            }
+
+            .asset-list-container {
+                max-height: 600px;
+            }
+
+            .toast-container {
+                right: 20px;
+                left: auto;
+                max-width: 350px;
+            }
+
+/* Map Top Search Bar - ADDED */
+.map-search-container {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    left: auto;
+    z-index: 100;
+    max-width: 400px;
+    width: 300px;
+    margin: 0;
+}
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-nav {
+                gap: 2rem;
+            }
+            
+            .map-container {
+                height: 700px; /* Fixed height for large screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase Status Indicator -->
+    <div class="firebase-status firebase-disconnected" id="firebaseStatus">
+        <i class="fas fa-plug"></i>
+        <span>Connecting to Firebase...</span>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-container">
+            <div class="logo">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <div class="logo-text">
+                <div class="company-name">CTM IT Department</div>
+                <div class="department-name">Live Asset Location Manager</div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <button class="nav-tab" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='scanqr.html'">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='addasset.html'">
+                <i class="fas fa-plus-circle"></i>
+                <span>Add Asset</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='inventory.html'">
+                <i class="fas fa-boxes-stacked"></i>
+                <span>Inventory</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='firebase.html'">
+                <i class="fas fa-database"></i>
+                <span>Firebase</span>
+            </button>
+            <button class="nav-tab" onclick="window.location.href='fullreport.html'">
+                <i class="fas fa-file-alt"></i>
+                <span>Full Report</span>
+            </button>
+            <button class="nav-tab active" onclick="window.location.href='inventorymap.html'">
+                <i class="fas fa-map-location-dot"></i>
+                <span>Inventory Map</span>
+            </button>
+        </nav>
+    </header>
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">Live Asset Location Management</h1>
+            <p class="page-subtitle">Select assets, capture live GPS location, and manage asset status in real-time</p>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="two-column">
+            <!-- Left Column: Asset List -->
+            <div class="column-left">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <i class="fas fa-list"></i>
+                            </div>
+                            <h2 class="card-title">All Assets</h2>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--medium-gray);">
+                            <span id="assetCount">0</span> assets found
+                        </div>
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="search-container">
+                        <div class="search-box">
+                            <input type="text" class="search-input" id="searchInput" placeholder="Search assets by tag, name, type, or location...">
+                            <div class="search-icon">
+                                <i class="fas fa-search"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Asset List -->
+                    <div class="asset-list-container" id="assetListContainer">
+                        <!-- Assets will be loaded here -->
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Loading assets from Firebase...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Map and Controls -->
+            <div class="column-right">
+                <!-- Map Container -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <i class="fas fa-map"></i>
+                            </div>
+                            <h2 class="card-title">Live Location Map</h2>
+                        </div>
+                    </div>
+
+                    <div class="map-container">
+                        <div id="map"></div>
+                        
+                        <!-- Map Type Toggle Button - ADDED -->
+                        <button class="map-type-toggle" id="mapTypeToggle">
+                            <i class="fas fa-satellite"></i>
+                            <span id="mapTypeText">Satellite View</span>
+                        </button>
+                        
+                        <!-- Map Top Search Bar - ADDED -->
+                        <div class="map-search-container">
+                            <div class="map-search-box">
+                                <input type="text" class="map-search-input" id="mapSearchInput" 
+                                       placeholder="Search asset by tag (e.g., CTM-IT-0001) and press Enter...">
+                                <div class="map-search-icon" onclick="searchAssetOnMap()">
+                                    <i class="fas fa-search"></i>
+                                </div>
+                                <div class="search-suggestions" id="searchSuggestions"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <div class="legend">
+                                <div class="legend-title">
+                                    <i class="fas fa-key"></i>
+                                    <span>Asset Status</span>
+                                </div>
+                                <div class="legend-items">
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #10b981;"></div>
+                                        <span>Active</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #3b82f6;"></div>
+                                        <span>In Use</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #fbbf24;"></div>
+                                        <span>Storage</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #ef4444;"></div>
+                                        <span>Repair</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location Controls -->
+                <div class="location-controls">
+                    <div class="location-info">
+                        <div class="location-card">
+                            <i class="fas fa-crosshairs"></i>
+                            <div class="location-value" id="currentLat">0.0000</div>
+                            <div class="location-label">Latitude</div>
+                        </div>
+                        <div class="location-card">
+                            <i class="fas fa-crosshairs"></i>
+                            <div class="location-value" id="currentLng">0.0000</div>
+                            <div class="location-label">Longitude</div>
+                        </div>
+                        <div class="location-card">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div class="location-value" id="accuracy">0 m</div>
+                            <div class="location-label">Accuracy</div>
+                        </div>
+                        <div class="location-card">
+                            <i class="fas fa-clock"></i>
+                            <div class="location-value" id="lastUpdate">--:--</div>
+                            <div class="location-label">Last Update</div>
+                        </div>
+                    </div>
+
+                    <!-- Selected Asset Info -->
+                    <div id="selectedAssetInfo" style="display: none;">
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; background: var(--light-gray); border-radius: 8px;">
+                            <div style="width: 60px; height: 60px; border-radius: 8px; background: linear-gradient(135deg, var(--primary-blue), var(--success-green)); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; flex-shrink: 0;">
+                                <i class="fas fa-laptop"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--dark-gray);" id="selectedAssetTag">CTM-IT-0001</div>
+                                    <div class="asset-status-badge status-active" id="selectedAssetStatus">Active</div>
+                                </div>
+                                <div style="font-size: 0.9rem; color: var(--medium-gray);" id="selectedAssetInfoText">Desktop PC - Main Office</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="getCurrentLocation()" id="getLocationBtn">
+                            <i class="fas fa-location-arrow"></i>
+                            <span>Get Live Location</span>
+                        </button>
+                        <button class="btn btn-success" onclick="saveLocationToAsset()" id="saveLocationBtn" disabled>
+                            <i class="fas fa-save"></i>
+                            <span>Save to Asset</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearLocation()" id="clearLocationBtn">
+                            <i class="fas fa-redo"></i>
+                            <span>Clear</span>
+                        </button>
+                    </div>
+
+                    <!-- Additional Actions -->
+                    <div class="action-buttons" style="margin-top: 1rem;">
+                        <button class="btn btn-warning" onclick="openEditModal()" id="editAssetBtn" disabled>
+                            <i class="fas fa-edit"></i>
+                            <span>Edit Asset</span>
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteSelectedAsset()" id="deleteAssetBtn" disabled>
+                            <i class="fas fa-trash"></i>
+                            <span>Delete Asset</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">CTM IT Department - Real-time Asset Location Management</div>
+            <div class="copyright">
+                &copy; 2024 GPS Location Tracking powered by Lakmal Sanjeewa Jayawickrama
+            </div>
+        </div>
+    </footer>
+
+    <!-- Edit Asset Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Asset Details</h3>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            
+            <form id="editAssetForm">
+                <div class="form-group">
+                    <label class="form-label">Asset Tag</label>
+                    <input type="text" class="form-input" id="editAssetTag" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Asset Type</label>
+                    <input type="text" class="form-input" id="editAssetType">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Brand/Model</label>
+                    <input type="text" class="form-input" id="editBrandModel">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Serial Number</label>
+                    <input type="text" class="form-input" id="editSerialNumber">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Assigned To</label>
+                    <input type="text" class="form-input" id="editAssignedTo">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Location Name</label>
+                    <input type="text" class="form-input" id="editLocationName">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <input type="text" class="form-input" id="editDepartment">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="editStatus">
+                        <option value="Active">Active</option>
+                        <option value="In Use">In Use</option>
+                        <option value="In Storage">In Storage</option>
+                        <option value="Under Repair">Under Repair</option>
+                        <option value="Retired">Retired</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">GPS Coordinates</label>
+                    <input type="text" class="form-input" id="editGPS" placeholder="e.g., 6.9271° N, 79.8612° E">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-input" id="editRemarks" rows="3"></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-primary" onclick="updateAsset()">
+                        <i class="fas fa-save"></i> Update Asset
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ==============================================
+        // FIREBASE CONFIGURATION
+        // ==============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyABuZWbNXGJ359mbctDsX-SSxwkUd3v1KY",
+            authDomain: "student-management-syste-d39a3.firebaseapp.com",
+            databaseURL: "https://student-management-syste-d39a3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "student-management-syste-d39a3",
+            storageBucket: "student-management-syste-d39a3.firebasestorage.app",
+            messagingSenderId: "36925529487",
+            appId: "1:36925529487:web:385e1af7ba174f8440fffa"
+        };
+
+        // ==============================================
+        // GLOBAL VARIABLES
+        // ==============================================
+        let firebaseApp;
+        let database;
+        let assetsRef;
+        let isFirebaseInitialized = false;
+        let firebaseConnected = false;
+        
+        let map;
+        let selectedMarker = null;
+        let markers = [];
+        let infoWindows = [];
+        let isSatelliteView = true; // Default to satellite view
+        
+        let currentLocation = null;
+        let selectedAsset = null;
+        let assetsDB = {};
+        
+        // Sri Lanka bounds for default view
+        const sriLankaLatLng = { lat: 7.8731, lng: 80.7718 }; // Center of Sri Lanka
+        const sriLankaBounds = {
+            north: 9.5,
+            south: 6.0,
+            east: 82.0,
+            west: 79.0
+        };
+
+        // ==============================================
+        // FIREBASE INITIALIZATION
+        // ==============================================
+        function initializeFirebase() {
+            try {
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                } else {
+                    firebaseApp = firebase.app();
+                }
+                
+                database = firebase.database();
+                assetsRef = database.ref('assets');
+                isFirebaseInitialized = true;
+                
+                // Connection status listener
+                const connectionRef = database.ref('.info/connected');
+                connectionRef.on('value', (snapshot) => {
+                    firebaseConnected = snapshot.val();
+                    updateConnectionStatus(firebaseConnected);
+                    
+                    if (firebaseConnected) {
+                        showToast('Connected to Firebase Database', 'success');
+                        setupRealtimeListeners();
+                    } else {
+                        showToast('Disconnected from Firebase', 'warning');
+                        loadFromLocalBackup();
+                    }
+                });
+                
+                return true;
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showToast(`Firebase connection error: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+                loadFromLocalBackup();
+                return false;
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const firebaseStatus = document.getElementById('firebaseStatus');
+            if (connected) {
+                firebaseStatus.className = 'firebase-status firebase-connected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Connected to Firebase</span>';
+            } else {
+                firebaseStatus.className = 'firebase-status firebase-disconnected';
+                firebaseStatus.innerHTML = '<i class="fas fa-plug"></i><span>Disconnected from Firebase</span>';
+            }
+        }
+
+        // ==============================================
+        // REAL-TIME DATABASE LISTENERS
+        // ==============================================
+        function setupRealtimeListeners() {
+            if (!isFirebaseInitialized) return;
+            
+            assetsRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                assetsDB = {};
+                
+                if (data) {
+                    Object.keys(data).forEach(firebaseId => {
+                        const asset = data[firebaseId];
+                        if (asset && asset.assetTag) {
+                            const key = generateFirebaseId(asset.assetTag);
+                            assetsDB[key] = asset;
+                            assetsDB[asset.assetTag] = asset;
+                        }
+                    });
+                }
+                
+                localStorage.setItem('ctmAssetsBackup', JSON.stringify(assetsDB));
+                updateAssetList();
+                updateMapMarkers();
+                
+                const count = Object.keys(assetsDB).filter(key => assetsDB[key].assetTag).length;
+                document.getElementById('assetCount').textContent = count;
+                showToast(`Loaded ${count} assets`, 'success');
+                
+            }, (error) => {
+                console.error('Firebase read error:', error);
+                showToast('Error loading assets from Firebase', 'error');
+                loadFromLocalBackup();
+            });
+        }
+
+        function loadFromLocalBackup() {
+            const backup = JSON.parse(localStorage.getItem('ctmAssetsBackup')) || {};
+            assetsDB = {};
+            
+            Object.keys(backup).forEach(key => {
+                const asset = backup[key];
+                if (asset && asset.assetTag) {
+                    const firebaseId = generateFirebaseId(asset.assetTag);
+                    assetsDB[firebaseId] = asset;
+                    assetsDB[asset.assetTag] = asset;
+                }
+            });
+            
+            updateAssetList();
+            updateMapMarkers();
+            
+            const count = Object.keys(assetsDB).filter(key => assetsDB[key].assetTag).length;
+            document.getElementById('assetCount').textContent = count;
+            showToast(`Loaded ${count} assets from local backup`, 'warning');
+        }
+
+        function generateFirebaseId(assetTag) {
+            return assetTag.replace(/[^a-zA-Z0-9]/g, '_');
+        }
+
+        function findAssetByTag(assetTag) {
+            const firebaseId = generateFirebaseId(assetTag);
+            if (assetsDB[firebaseId]) {
+                return assetsDB[firebaseId];
+            }
+            
+            for (const key in assetsDB) {
+                const asset = assetsDB[key];
+                if (asset && asset.assetTag === assetTag) {
+                    return asset;
+                }
+            }
+            
+            return null;
+        }
+
+        // ==============================================
+        // GOOGLE MAPS INITIALIZATION
+        // ==============================================
+        function initMap() {
+            // Set default map type to satellite
+            const defaultMapTypeId = isSatelliteView ? 'satellite' : 'roadmap';
+            
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: sriLankaLatLng,
+                zoom: 8, // Zoom level to show entire Sri Lanka
+                mapTypeId: defaultMapTypeId,
+                styles: [
+                    {
+                        "featureType": "administrative",
+                        "elementType": "labels.text.fill",
+                        "stylers": [{"color": "#444444"}]
+                    },
+                    {
+                        "featureType": "landscape",
+                        "elementType": "all",
+                        "stylers": [{"color": "#f2f2f2"}]
+                    },
+                    {
+                        "featureType": "poi",
+                        "elementType": "all",
+                        "stylers": [{"visibility": "off"}]
+                    },
+                    {
+                        "featureType": "road",
+                        "elementType": "all",
+                        "stylers": [{"saturation": -100}, {"lightness": 45}]
+                    },
+                    {
+                        "featureType": "road.highway",
+                        "elementType": "all",
+                        "stylers": [{"visibility": "simplified"}]
+                    },
+                    {
+                        "featureType": "road.arterial",
+                        "elementType": "labels.icon",
+                        "stylers": [{"visibility": "off"}]
+                    },
+                    {
+                        "featureType": "transit",
+                        "elementType": "all",
+                        "stylers": [{"visibility": "off"}]
+                    },
+                    {
+                        "featureType": "water",
+                        "elementType": "all",
+                        "stylers": [{"color": "#d4e6ff"}, {"visibility": "on"}]
+                    }
+                ],
+                mapTypeControl: false,
+                streetViewControl: true,
+                fullscreenControl: true,
+                zoomControl: true,
+                restriction: {
+                    latLngBounds: sriLankaBounds,
+                    strictBounds: false
+                }
+            });
+
+            // Set up map type toggle
+            setupMapTypeToggle();
+
+            // Add click listener to map to get coordinates
+            map.addListener('click', (event) => {
+                currentLocation = {
+                    lat: event.latLng.lat(),
+                    lng: event.latLng.lng(),
+                    accuracy: 10, // Manual selection accuracy
+                    timestamp: new Date().toISOString()
+                };
+                
+                updateLocationDisplay();
+                addManualMarker();
+                enableSaveButton();
+            });
+
+            // Setup map search functionality
+            setupMapSearch();
+
+            // Initialize Firebase and load assets
+            initializeFirebase();
+        }
+
+        // ==============================================
+        // MAP TYPE TOGGLE FUNCTIONALITY - NEW
+        // ==============================================
+        function setupMapTypeToggle() {
+            const mapTypeToggle = document.getElementById('mapTypeToggle');
+            const mapTypeText = document.getElementById('mapTypeText');
+            
+            mapTypeToggle.addEventListener('click', () => {
+                isSatelliteView = !isSatelliteView;
+                
+                if (isSatelliteView) {
+                    map.setMapTypeId('satellite');
+                    mapTypeText.textContent = 'Satellite View';
+                    mapTypeToggle.innerHTML = '<i class="fas fa-satellite"></i><span>Satellite View</span>';
+                } else {
+                    map.setMapTypeId('roadmap');
+                    mapTypeText.textContent = 'Map View';
+                    mapTypeToggle.innerHTML = '<i class="fas fa-map"></i><span>Map View</span>';
+                }
+            });
+        }
+
+        // ==============================================
+        // MAP SEARCH FUNCTIONALITY
+        // ==============================================
+        function setupMapSearch() {
+            const mapSearchInput = document.getElementById('mapSearchInput');
+            const searchSuggestions = document.getElementById('searchSuggestions');
+            
+            // Search on Enter key
+            mapSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchAssetOnMap();
+                }
+            });
+            
+            // Show suggestions on input
+            mapSearchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.trim();
+                
+                if (searchTerm.length < 2) {
+                    searchSuggestions.style.display = 'none';
+                    return;
+                }
+                
+                const suggestions = getSearchSuggestions(searchTerm);
+                displaySearchSuggestions(suggestions);
+            });
+            
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.map-search-box')) {
+                    searchSuggestions.style.display = 'none';
+                }
+            });
+        }
+
+        function getSearchSuggestions(searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const suggestions = [];
+            
+            Object.values(assetsDB).forEach(asset => {
+                if (!asset || !asset.assetTag) return;
+                
+                const matches = 
+                    asset.assetTag.toLowerCase().includes(term) ||
+                    (asset.assignedTo && asset.assignedTo.toLowerCase().includes(term)) ||
+                    (asset.location && asset.location.toLowerCase().includes(term)) ||
+                    (asset.assetType && asset.assetType.toLowerCase().includes(term));
+                
+                if (matches) {
+                    suggestions.push(asset);
+                }
+            });
+            
+            // Sort by relevance
+            suggestions.sort((a, b) => {
+                const aExact = a.assetTag.toLowerCase() === term;
+                const bExact = b.assetTag.toLowerCase() === term;
+                if (aExact && !bExact) return -1;
+                if (!aExact && bExact) return 1;
+                return 0;
+            });
+            
+            return suggestions.slice(0, 5); // Return top 5 suggestions
+        }
+
+        function displaySearchSuggestions(suggestions) {
+            const container = document.getElementById('searchSuggestions');
+            
+            if (suggestions.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.innerHTML = suggestions.map(asset => `
+                <div class="search-suggestion-item" onclick="selectSearchSuggestion('${asset.assetTag}')">
+                    <div class="suggestion-tag">${asset.assetTag}</div>
+                    <div class="suggestion-type">${asset.assetType || 'Asset'} - ${asset.assignedTo || 'Not assigned'}</div>
+                </div>
+            `).join('');
+            
+            container.style.display = 'block';
+        }
+
+        function selectSearchSuggestion(assetTag) {
+            document.getElementById('mapSearchInput').value = assetTag;
+            document.getElementById('searchSuggestions').style.display = 'none';
+            searchAssetOnMap();
+        }
+
+        function searchAssetOnMap() {
+            const searchTerm = document.getElementById('mapSearchInput').value.trim();
+            
+            if (!searchTerm) {
+                showToast('Please enter an asset tag to search', 'warning');
+                return;
+            }
+            
+            // Find asset by tag
+            const asset = findAssetByTag(searchTerm);
+            
+            if (!asset) {
+                showToast(`Asset "${searchTerm}" not found`, 'error');
+                return;
+            }
+            
+            // Check if asset has GPS location
+            if (!asset.gpsLocation || asset.gpsLocation.trim() === '') {
+                showToast(`Asset "${asset.assetTag}" has no GPS location set`, 'warning');
+                selectAsset(asset.assetTag); // Still select the asset
+                return;
+            }
+            
+            // Parse GPS coordinates
+            const coords = parseGPSLocation(asset.gpsLocation);
+            if (!coords) {
+                showToast(`Invalid GPS format for asset "${asset.assetTag}"`, 'error');
+                return;
+            }
+            
+            // Zoom to asset location with maximum zoom (20)
+            zoomToAssetLocation(coords, asset);
+            
+            // Select the asset in the list
+            selectAsset(asset.assetTag);
+            
+            showToast(`Found asset: ${asset.assetTag}. Zooming to location...`, 'success');
+        }
+
+        function zoomToAssetLocation(coords, asset) {
+            // Remove previous search marker if exists
+            if (window.searchMarker) {
+                window.searchMarker.setMap(null);
+            }
+            
+            // Create a bounce animation marker for search result
+            window.searchMarker = new google.maps.Marker({
+                position: coords,
+                map: map,
+                title: `Search Result: ${asset.assetTag}`,
+                icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        <svg width="60" height="60" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="30" cy="30" r="25" fill="#ef4444" stroke="white" stroke-width="3"/>
+                            <text x="30" y="38" text-anchor="middle" fill="white" font-family="Arial" font-size="16" font-weight="bold">
+                                !
+                            </text>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(60, 60),
+                    anchor: new google.maps.Point(30, 30)
+                },
+                animation: google.maps.Animation.BOUNCE
+            });
+            
+            // Center and zoom map to maximum zoom (20)
+            map.setCenter(coords);
+            map.setZoom(20); // Maximum zoom level
+            
+            // Create info window
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div style="min-width: 250px; padding: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div style="width: 50px; height: 50px; border-radius: 8px; background: ${getMarkerColor(asset.status || 'Active')}; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                                <i class="fas fa-${getAssetIcon(asset.assetType)}"></i>
+                            </div>
+                            <div>
+                                <strong style="font-size: 16px; color: #1f2937;">${asset.assetTag}</strong><br>
+                                <span style="font-size: 14px; color: #6b7280;">${asset.assetType || 'Asset'}</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 13px; color: #4b5563;">
+                            <div><strong>Location:</strong> ${asset.location || 'Unknown'}</div>
+                            <div><strong>Assigned To:</strong> ${asset.assignedTo || 'Not assigned'}</div>
+                            <div><strong>Status:</strong> <span style="color: ${getMarkerColor(asset.status || 'Active')}; font-weight: 600;">${asset.status || 'Active'}</span></div>
+                            <div><strong>GPS:</strong> ${asset.gpsLocation || 'Not set'}</div>
+                        </div>
+                        <div style="margin-top: 15px; display: flex; gap: 10px;">
+                            <button onclick="selectAsset('${asset.assetTag}')" style="flex: 1; padding: 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-crosshairs"></i> Select
+                            </button>
+                            <button onclick="openEditModalForAsset('${asset.assetTag}')" style="flex: 1; padding: 8px; background: #fbbf24; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </div>
+                    </div>
+                `
+            });
+            
+            infoWindow.open(map, window.searchMarker);
+            
+            // Remove the search marker after 5 seconds
+            setTimeout(() => {
+                window.searchMarker.setAnimation(null);
+                setTimeout(() => {
+                    if (window.searchMarker) {
+                        window.searchMarker.setMap(null);
+                        infoWindow.close();
+                    }
+                }, 2000);
+            }, 5000);
+        }
+
+        // ==============================================
+        // ASSET LIST MANAGEMENT
+        // ==============================================
+        function updateAssetList() {
+            const container = document.getElementById('assetListContainer');
+            if (!container) return;
+            
+            // Get unique assets
+            const uniqueAssets = [];
+            const seenTags = new Set();
+            
+            Object.values(assetsDB).forEach(asset => {
+                if (asset && asset.assetTag && !seenTags.has(asset.assetTag)) {
+                    seenTags.add(asset.assetTag);
+                    uniqueAssets.push(asset);
+                }
+            });
+            
+            if (uniqueAssets.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--medium-gray);">
+                        <i class="fas fa-box-open" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                        <p>No assets found</p>
+                        <button class="btn btn-primary" onclick="window.location.href='AddAsset.html'" style="margin-top: 1rem;">
+                            <i class="fas fa-plus"></i> Add New Asset
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort assets by asset tag
+            uniqueAssets.sort((a, b) => {
+                return (a.assetTag || '').localeCompare(b.assetTag || '');
+            });
+            
+            container.innerHTML = uniqueAssets.map(asset => {
+                const isSelected = selectedAsset && selectedAsset.assetTag === asset.assetTag;
+                const status = asset.status || 'Active';
+                const hasGPS = asset.gpsLocation && asset.gpsLocation.trim() !== '';
+                
+                return `
+                    <div class="asset-item ${isSelected ? 'selected' : ''}" onclick="selectAsset('${asset.assetTag}')" data-tag="${asset.assetTag}">
+                        <div class="asset-item-header">
+                            <div class="asset-tag">${asset.assetTag || 'Unknown'}</div>
+                            <div class="asset-status-badge status-${status.toLowerCase().replace(' ', '')}">${status}</div>
+                        </div>
+                        
+                        <div class="asset-info">
+                            <div class="asset-info-item">
+                                <i class="fas fa-${getAssetIcon(asset.assetType)}"></i>
+                                <span>${asset.assetType || 'Unknown'}</span>
+                            </div>
+                            <div class="asset-info-item">
+                                <i class="fas fa-user"></i>
+                                <span>${asset.assignedTo || 'Not assigned'}</span>
+                            </div>
+                            <div class="asset-info-item">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>${asset.location || 'Unknown'}</span>
+                            </div>
+                            <div class="asset-info-item">
+                                <i class="fas fa-${hasGPS ? 'check-circle' : 'times-circle'}"></i>
+                                <span>${hasGPS ? 'GPS Available' : 'No GPS'}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="asset-actions">
+                            <button class="btn btn-small btn-primary" onclick="selectAsset('${asset.assetTag}'); event.stopPropagation();">
+                                <i class="fas fa-crosshairs"></i> Select
+                            </button>
+                            <button class="btn btn-small btn-warning" onclick="openEditModalForAsset('${asset.assetTag}'); event.stopPropagation();">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="deleteAsset('${asset.assetTag}'); event.stopPropagation();">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectAsset(assetTag) {
+            const asset = findAssetByTag(assetTag);
+            if (!asset) {
+                showToast('Asset not found', 'error');
+                return;
+            }
+            
+            selectedAsset = asset;
+            
+            // Update UI
+            document.querySelectorAll('.asset-item').forEach(item => {
+                item.classList.remove('selected');
+                if (item.getAttribute('data-tag') === assetTag) {
+                    item.classList.add('selected');
+                }
+            });
+            
+            // Show selected asset info
+            document.getElementById('selectedAssetInfo').style.display = 'block';
+            document.getElementById('selectedAssetTag').textContent = asset.assetTag;
+            document.getElementById('selectedAssetStatus').textContent = asset.status || 'Active';
+            document.getElementById('selectedAssetStatus').className = `asset-status-badge status-${(asset.status || 'Active').toLowerCase().replace(' ', '')}`;
+            document.getElementById('selectedAssetInfoText').textContent = 
+                `${asset.assetType || 'Asset'} - ${asset.location || 'No location'}`;
+            
+            // Enable action buttons
+            document.getElementById('editAssetBtn').disabled = false;
+            document.getElementById('deleteAssetBtn').disabled = false;
+            document.getElementById('saveLocationBtn').disabled = !currentLocation;
+            
+            // Set search input to asset tag
+            document.getElementById('mapSearchInput').value = asset.assetTag;
+            
+            // Center map on asset if it has GPS
+            if (asset.gpsLocation) {
+                const coords = parseGPSLocation(asset.gpsLocation);
+                if (coords) {
+                    map.setCenter(coords);
+                    map.setZoom(17);
+                    
+                    // Highlight the marker
+                    highlightAssetMarker(asset.assetTag);
+                }
+            }
+            
+            showToast(`Selected asset: ${asset.assetTag}`, 'info');
+        }
+
+        function highlightAssetMarker(assetTag) {
+            // Find and animate the marker
+            markers.forEach((marker, index) => {
+                const infoWindow = infoWindows[index];
+                const asset = Object.values(assetsDB).find(a => {
+                    const coords = parseGPSLocation(a.gpsLocation);
+                    return coords && 
+                           coords.lat === marker.getPosition().lat() &&
+                           coords.lng === marker.getPosition().lng() &&
+                           a.assetTag === assetTag;
+                });
+                
+                if (asset) {
+                    marker.setAnimation(google.maps.Animation.BOUNCE);
+                    infoWindow.open(map, marker);
+                    
+                    // Stop animation after 3 seconds
+                    setTimeout(() => {
+                        marker.setAnimation(null);
+                    }, 3000);
+                }
+            });
+        }
+
+        // ==============================================
+        // MAP MARKER FUNCTIONS
+        // ==============================================
+        function updateMapMarkers() {
+            // Clear existing markers
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            infoWindows.forEach(infoWindow => infoWindow.close());
+            infoWindows = [];
+
+            // Add markers for assets with GPS locations
+            Object.values(assetsDB).forEach(asset => {
+                if (!asset || typeof asset !== 'object') return;
+                
+                if (asset.gpsLocation && asset.gpsLocation.trim() !== '') {
+                    const coords = parseGPSLocation(asset.gpsLocation);
+                    if (coords) {
+                        addAssetMarker(asset, coords);
+                    }
+                }
+            });
+
+            // If there are markers, fit bounds to show all markers
+            if (markers.length > 0) {
+                const bounds = new google.maps.LatLngBounds();
+                markers.forEach(marker => bounds.extend(marker.getPosition()));
+                
+                // Check if bounds are within Sri Lanka
+                const ne = bounds.getNorthEast();
+                const sw = bounds.getSouthWest();
+                
+                if (ne.lat() > sriLankaBounds.north || sw.lat() < sriLankaBounds.south ||
+                    ne.lng() > sriLankaBounds.east || sw.lng() < sriLankaBounds.west) {
+                    // If markers are outside Sri Lanka, reset to Sri Lanka view
+                    resetToSriLankaView();
+                } else {
+                    map.fitBounds(bounds);
+                }
+            } else {
+                // If no markers, show Sri Lanka
+                resetToSriLankaView();
+            }
+        }
+
+        function resetToSriLankaView() {
+            map.setCenter(sriLankaLatLng);
+            map.setZoom(8); // Zoom level to show entire Sri Lanka
+        }
+
+        function parseGPSLocation(gpsString) {
+            try {
+                if (gpsString.includes(',') && gpsString.includes('°')) {
+                    const parts = gpsString.split(',');
+                    const latPart = parts[0].trim();
+                    const lngPart = parts[1].trim();
+                    
+                    const lat = parseFloat(latPart);
+                    const lng = parseFloat(lngPart);
+                    
+                    const latMultiplier = latPart.includes('S') ? -1 : 1;
+                    const lngMultiplier = lngPart.includes('W') ? -1 : 1;
+                    
+                    return { lat: Math.abs(lat) * latMultiplier, lng: Math.abs(lng) * lngMultiplier };
+                } else if (gpsString.includes(',')) {
+                    const parts = gpsString.split(',');
+                    const lat = parseFloat(parts[0].trim());
+                    const lng = parseFloat(parts[1].trim());
+                    return { lat, lng };
+                }
+            } catch (error) {
+                console.error('Error parsing GPS location:', error);
+                return null;
+            }
+            return null;
+        }
+
+        function addAssetMarker(asset, coords) {
+            const status = asset.status || 'Active';
+            const markerColor = getMarkerColor(status);
+            
+            const marker = new google.maps.Marker({
+                position: coords,
+                map: map,
+                title: `${asset.assetTag} - ${asset.assetType || 'Asset'}`,
+                icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        <svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="20" cy="20" r="18" fill="${markerColor}" stroke="white" stroke-width="2"/>
+                            <text x="20" y="25" text-anchor="middle" fill="white" font-family="Arial" font-size="14" font-weight="bold">
+                                ${getAssetInitial(asset.assetType)}
+                            </text>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 20)
+                }
+            });
+
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div style="min-width: 200px; padding: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div style="width: 40px; height: 40px; border-radius: 8px; background: ${markerColor}; display: flex; align-items: center; justify-content: center; color: white;">
+                                <i class="fas fa-${getAssetIcon(asset.assetType)}"></i>
+                            </div>
+                            <div>
+                                <strong style="font-size: 14px; color: #1f2937;">${asset.assetTag}</strong><br>
+                                <span style="font-size: 12px; color: #6b7280;">${asset.assetType || 'Asset'}</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: #4b5563;">
+                            <div><strong>Assigned To:</strong> ${asset.assignedTo || 'Not assigned'}</div>
+                            <div><strong>Location:</strong> ${asset.location || 'Unknown'}</div>
+                            <div><strong>Status:</strong> <span style="color: ${markerColor}; font-weight: 600;">${status}</span></div>
+                            <div><strong>GPS:</strong> ${asset.gpsLocation || 'Not set'}</div>
+                        </div>
+                        <div style="margin-top: 10px; display: flex; gap: 5px;">
+                            <button onclick="selectAsset('${asset.assetTag}')" style="flex: 1; padding: 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-crosshairs"></i> Select
+                            </button>
+                            <button onclick="searchAssetOnMap()" style="flex: 1; padding: 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-search"></i> Find
+                            </button>
+                        </div>
+                    </div>
+                `
+            });
+
+            marker.addListener('click', () => {
+                infoWindows.forEach(iw => iw.close());
+                infoWindow.open(map, marker);
+                selectAsset(asset.assetTag);
+            });
+
+            markers.push(marker);
+            infoWindows.push(infoWindow);
+        }
+
+        function addManualMarker() {
+            if (!currentLocation) return;
+            
+            // Remove previous manual marker
+            if (selectedMarker) {
+                selectedMarker.setMap(null);
+            }
+            
+            selectedMarker = new google.maps.Marker({
+                position: { lat: currentLocation.lat, lng: currentLocation.lng },
+                map: map,
+                title: 'Selected Location',
+                icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        <svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="25" cy="25" r="10" fill="#ef4444" stroke="white" stroke-width="3"/>
+                            <circle cx="25" cy="25" r="20" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="5,5"/>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(50, 50),
+                    anchor: new google.maps.Point(25, 25)
+                },
+                animation: google.maps.Animation.DROP
+            });
+            
+            // Center map on selected location
+            map.setCenter({ lat: currentLocation.lat, lng: currentLocation.lng });
+            map.setZoom(18);
+        }
+
+        function getMarkerColor(status) {
+            switch(status) {
+                case 'Active': return '#10b981';
+                case 'Under Repair':
+                case 'Repair': return '#ef4444';
+                case 'In Use': return '#3b82f6';
+                case 'In Storage':
+                case 'Storage': return '#fbbf24';
+                case 'Retired': return '#6b7280';
+                default: return '#10b981';
+            }
+        }
+
+        function getAssetIcon(assetType) {
+            const icons = {
+                'Desktop PC': 'desktop',
+                'Laptop PC': 'laptop',
+                'Printer': 'print',
+                'Scanner': 'scanner',
+                'Monitor': 'tv',
+                'UPS': 'battery-full',
+                'Network Switch': 'network-wired',
+                'Router': 'wifi',
+                'CCTV': 'video',
+                'Server': 'server',
+                'Fingerprint Device': 'fingerprint',
+                'Mobile Phone': 'mobile-alt',
+                'DVR/NVR': 'hdd',
+                'Keyboard': 'keyboard',
+                'Mouse': 'mouse',
+                'Tablet PC': 'tablet-alt'
+            };
+            return icons[assetType] || 'laptop';
+        }
+
+        function getAssetInitial(assetType) {
+            return assetType ? assetType.charAt(0).toUpperCase() : 'A';
+        }
+
+        // ==============================================
+        // LOCATION FUNCTIONS
+        // ==============================================
+        function getCurrentLocation() {
+            if (!navigator.geolocation) {
+                showToast('Geolocation is not supported by your browser', 'error');
+                return;
+            }
+            
+            document.getElementById('getLocationBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting Location...';
+            document.getElementById('getLocationBtn').disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    currentLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    updateLocationDisplay();
+                    addManualMarker();
+                    enableSaveButton();
+                    
+                    document.getElementById('getLocationBtn').innerHTML = '<i class="fas fa-location-arrow"></i> Get Live Location';
+                    document.getElementById('getLocationBtn').disabled = false;
+                    
+                    showToast('Location captured successfully', 'success');
+                },
+                (error) => {
+                    let errorMessage = 'Unable to retrieve your location';
+                    
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = 'Location permission denied. Please enable location services.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = 'Location request timed out.';
+                            break;
+                    }
+                    
+                    showToast(errorMessage, 'error');
+                    
+                    document.getElementById('getLocationBtn').innerHTML = '<i class="fas fa-location-arrow"></i> Get Live Location';
+                    document.getElementById('getLocationBtn').disabled = false;
+                    
+                    // Fallback: Use map click for manual location
+                    showToast('Click on the map to select location manually', 'warning');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function updateLocationDisplay() {
+            if (!currentLocation) return;
+            
+            document.getElementById('currentLat').textContent = currentLocation.lat.toFixed(6);
+            document.getElementById('currentLng').textContent = currentLocation.lng.toFixed(6);
+            document.getElementById('accuracy').textContent = `${Math.round(currentLocation.accuracy || 0)} m`;
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function enableSaveButton() {
+            document.getElementById('saveLocationBtn').disabled = !currentLocation || !selectedAsset;
+        }
+
+        function clearLocation() {
+            currentLocation = null;
+            
+            if (selectedMarker) {
+                selectedMarker.setMap(null);
+                selectedMarker = null;
+            }
+            
+            document.getElementById('currentLat').textContent = '0.0000';
+            document.getElementById('currentLng').textContent = '0.0000';
+            document.getElementById('accuracy').textContent = '0 m';
+            document.getElementById('lastUpdate').textContent = '--:--';
+            
+            document.getElementById('saveLocationBtn').disabled = true;
+            
+            showToast('Location cleared', 'info');
+        }
+
+        // ==============================================
+        // ASSET MANAGEMENT FUNCTIONS
+        // ==============================================
+        function saveLocationToAsset() {
+            if (!selectedAsset || !currentLocation) {
+                showToast('Please select an asset and capture a location first', 'warning');
+                return;
+            }
+            
+            const confirmed = confirm(`Save this location to asset ${selectedAsset.assetTag}?`);
+            if (!confirmed) return;
+            
+            // Format GPS coordinates
+            const latDirection = currentLocation.lat >= 0 ? 'N' : 'S';
+            const lngDirection = currentLocation.lng >= 0 ? 'E' : 'W';
+            const gpsString = `${Math.abs(currentLocation.lat).toFixed(4)}° ${latDirection}, ${Math.abs(currentLocation.lng).toFixed(4)}° ${lngDirection}`;
+            
+            // Update asset in Firebase
+            const firebaseId = generateFirebaseId(selectedAsset.assetTag);
+            const updates = {
+                gpsLocation: gpsString,
+                updatedAt: new Date().toISOString()
+            };
+            
+            assetsRef.child(firebaseId).update(updates)
+                .then(() => {
+                    showToast(`Location saved to ${selectedAsset.assetTag}`, 'success');
+                    
+                    // Update local cache
+                    if (assetsDB[firebaseId]) {
+                        assetsDB[firebaseId].gpsLocation = gpsString;
+                        assetsDB[firebaseId].updatedAt = updates.updatedAt;
+                    }
+                    
+                    // Refresh map markers
+                    updateMapMarkers();
+                    
+                    // Clear location after saving
+                    clearLocation();
+                })
+                .catch((error) => {
+                    console.error('Error saving location:', error);
+                    showToast('Error saving location to Firebase', 'error');
+                });
+        }
+
+        function openEditModal() {
+            if (!selectedAsset) {
+                showToast('Please select an asset first', 'warning');
+                return;
+            }
+            
+            openEditModalForAsset(selectedAsset.assetTag);
+        }
+
+        function openEditModalForAsset(assetTag) {
+            const asset = findAssetByTag(assetTag);
+            if (!asset) {
+                showToast('Asset not found', 'error');
+                return;
+            }
+            
+            selectedAsset = asset;
+            
+            // Populate form fields
+            document.getElementById('editAssetTag').value = asset.assetTag || '';
+            document.getElementById('editAssetType').value = asset.assetType || '';
+            document.getElementById('editBrandModel').value = asset.brandModel || '';
+            document.getElementById('editSerialNumber').value = asset.serialNumber || '';
+            document.getElementById('editAssignedTo').value = asset.assignedTo || '';
+            document.getElementById('editLocationName').value = asset.location || '';
+            document.getElementById('editDepartment').value = asset.department || '';
+            document.getElementById('editStatus').value = asset.status || 'Active';
+            document.getElementById('editGPS').value = asset.gpsLocation || '';
+            document.getElementById('editRemarks').value = asset.remarks || '';
+            
+            // Show modal
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function updateAsset() {
+            if (!selectedAsset) return;
+            
+            const firebaseId = generateFirebaseId(selectedAsset.assetTag);
+            const updates = {
+                assetType: document.getElementById('editAssetType').value,
+                brandModel: document.getElementById('editBrandModel').value,
+                serialNumber: document.getElementById('editSerialNumber').value,
+                assignedTo: document.getElementById('editAssignedTo').value,
+                location: document.getElementById('editLocationName').value,
+                department: document.getElementById('editDepartment').value,
+                status: document.getElementById('editStatus').value,
+                gpsLocation: document.getElementById('editGPS').value,
+                remarks: document.getElementById('editRemarks').value,
+                updatedAt: new Date().toISOString()
+            };
+            
+            // Validate required fields
+            if (!updates.assetType || !updates.brandModel) {
+                showToast('Asset type and brand/model are required', 'error');
+                return;
+            }
+            
+            assetsRef.child(firebaseId).update(updates)
+                .then(() => {
+                    showToast(`Asset ${selectedAsset.assetTag} updated successfully`, 'success');
+                    
+                    // Update local cache
+                    if (assetsDB[firebaseId]) {
+                        Object.assign(assetsDB[firebaseId], updates);
+                    }
+                    
+                    // Refresh UI
+                    updateAssetList();
+                    updateMapMarkers();
+                    
+                    // Close modal
+                    closeEditModal();
+                })
+                .catch((error) => {
+                    console.error('Error updating asset:', error);
+                    showToast('Error updating asset in Firebase', 'error');
+                });
+        }
+
+        function deleteSelectedAsset() {
+            if (!selectedAsset) {
+                showToast('Please select an asset first', 'warning');
+                return;
+            }
+            
+            deleteAsset(selectedAsset.assetTag);
+        }
+
+        function deleteAsset(assetTag) {
+            const confirmed = confirm(`Are you sure you want to delete asset ${assetTag}? This action cannot be undone.`);
+            if (!confirmed) return;
+            
+            const firebaseId = generateFirebaseId(assetTag);
+            
+            assetsRef.child(firebaseId).remove()
+                .then(() => {
+                    showToast(`Asset ${assetTag} deleted successfully`, 'success');
+                    
+                    // Remove from local cache
+                    delete assetsDB[firebaseId];
+                    delete assetsDB[assetTag];
+                    
+                    // Refresh UI
+                    updateAssetList();
+                    updateMapMarkers();
+                    
+                    // Clear selection
+                    selectedAsset = null;
+                    document.getElementById('selectedAssetInfo').style.display = 'none';
+                    document.getElementById('editAssetBtn').disabled = true;
+                    document.getElementById('deleteAssetBtn').disabled = true;
+                    document.getElementById('saveLocationBtn').disabled = true;
+                    
+                    // Reset to Sri Lanka view
+                    resetToSriLankaView();
+                })
+                .catch((error) => {
+                    console.error('Error deleting asset:', error);
+                    showToast('Error deleting asset from Firebase', 'error');
+                });
+        }
+
+        // ==============================================
+        // SEARCH FUNCTIONALITY
+        // ==============================================
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                
+                if (searchTerm === '') {
+                    // Show all assets
+                    document.querySelectorAll('.asset-item').forEach(item => {
+                        item.style.display = 'block';
+                    });
+                    return;
+                }
+                
+                // Filter assets
+                document.querySelectorAll('.asset-item').forEach(item => {
+                    const assetTag = item.getAttribute('data-tag') || '';
+                    const text = item.textContent.toLowerCase();
+                    
+                    if (text.includes(searchTerm) || assetTag.toLowerCase().includes(searchTerm)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // ==============================================
+        // UTILITY FUNCTIONS
+        // ==============================================
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+                </div>
+                <div style="flex: 1;">
+                    <strong>${message}</strong>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode === toastContainer) {
+                        toastContainer.removeChild(toast);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // ==============================================
+        // INITIALIZATION
+        // ==============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for Google Maps API
+            if (!window.google || !window.google.maps) {
+                document.getElementById('map').innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--danger-red);">
+                        <i class="fas fa-map-marked-alt" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <h3>Google Maps API Required</h3>
+                        <p>Please ensure the Google Maps API is properly configured</p>
+                    </div>
+                `;
+            }
+            
+            // Setup search functionality
+            setupSearch();
+            
+            // Request location permission on page load
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    () => showToast('Location services enabled', 'success'),
+                    () => showToast('Location permission required for live tracking', 'warning')
+                );
+            }
+        });
+
+        // Make functions globally available
+        window.selectAsset = selectAsset;
+        window.getCurrentLocation = getCurrentLocation;
+        window.saveLocationToAsset = saveLocationToAsset;
+        window.clearLocation = clearLocation;
+        window.openEditModal = openEditModal;
+        window.openEditModalForAsset = openEditModalForAsset;
+        window.closeEditModal = closeEditModal;
+        window.updateAsset = updateAsset;
+        window.deleteSelectedAsset = deleteSelectedAsset;
+        window.deleteAsset = deleteAsset;
+        window.searchAssetOnMap = searchAssetOnMap;
+        window.selectSearchSuggestion = selectSearchSuggestion;
+        
+    </script>
+</body>
+</html>
